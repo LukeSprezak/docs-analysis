@@ -1,0 +1,21 @@
+node_modules
+
+# Build output
+build
+dist
+
+# Environment
+.env
+.env.*
+
+# Version control
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Docs
+*.md
+LICENSE
