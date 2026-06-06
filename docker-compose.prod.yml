@@ -1,0 +1,42 @@
+services:
+  api:
+    build:
+      target: prod
+    image: docsanalysis-api:latest
+    restart: always
+    ports:
+      - "8001:8000"
+    volumes: []
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=WARNING
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  frontend:
+    restart: always
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  db:
+    restart: always
+    ports: []
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 512M

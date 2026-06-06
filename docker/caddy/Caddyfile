@@ -1,0 +1,18 @@
+{
+    # Global options
+}
+
+:3000 {
+    root * /usr/share/caddy
+    file_server
+
+    # API Proxy
+    handle_path /api/* {
+        reverse_proxy api:8000
+    }
+
+    # React Routing
+    handle {
+        try_files {path} /index.html
+    }
+}

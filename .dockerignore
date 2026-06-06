@@ -1,0 +1,33 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyo
+.venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+.uv-cache
+tests
+.gitlab-ci.yml
+# Environment
+.env
+.env.*
+!.env.example
+# Docker
+docker-compose*.yml
+docker/
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+client/node_modules
+client/build
+client/dist
+# Docs
+*.md
