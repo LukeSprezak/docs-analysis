@@ -22,6 +22,16 @@ dependencies = [
     "pgvector>=0.3.0",
     "psycopg[binary]>=3.2.0",
     "langchain-postgres>=0.0.12",
+    "cohere>=7.0.3",
+    "pyjwt>=2.13.0",
+    "bcrypt>=5.0.0",
+    "slowapi>=0.1.9",
+    "alembic>=1.18.4",
+]
+
+[project.optional-dependencies]
+local-reranker = [
+    "sentence-transformers>=3.0",
 ]
 
 [dependency-groups]
@@ -30,6 +40,7 @@ dev = [
     "ruff>=0.6.0",
     "mypy>=1.11.0",
     "httpx>=0.27.0",
+    "pytest-asyncio>=1.4.0",
 ]
 
 [tool.uv]
@@ -51,7 +62,12 @@ select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF", "ASYNC", "S", "PT"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "S105", "S106"]
+# ASYNC230/240: The rules regarding blocking the event loop apply to production code — in tests,
+# file system assertions (open/Path.exists) are acceptable and more readable than threads.
+"tests/*" = ["S101", "S105", "S106", "ASYNC230", "ASYNC240"]
+# The exception hierarchy uses a fixed, descriptive suffix `*Exception` (a standard
+# Python convention, consistent throughout the API) — we deliberately do not enforce `*Error` (N818).
+"app/shared/exceptions.py" = ["N818"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
