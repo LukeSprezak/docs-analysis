@@ -164,14 +164,14 @@ const SummarizerTab: React.FC = () => {
   return (
     <div className="p-5 max-w-6xl mx-auto">
       <h3 className="text-xl font-semibold mb-6 text-gray-800 dark:text-gray-200">{t('summarizer.title')}</h3>
-
+      
       <div className="mb-8 p-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 transition-colors">
         <h4 className="text-sm font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-3">{t('summarizer.upload_title')}</h4>
         <div className="flex items-center gap-4">
-          <input
-            type="file"
-            onChange={handleFileUpload}
-            disabled={uploading}
+          <input 
+            type="file" 
+            onChange={handleFileUpload} 
+            disabled={uploading} 
             className="block w-full text-sm text-gray-500 dark:text-gray-400
               file:mr-4 file:py-2 file:px-4
               file:rounded-full file:border-0
@@ -187,8 +187,8 @@ const SummarizerTab: React.FC = () => {
                 <span className="text-xs font-bold text-blue-600">{uploadProgress}%</span>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                <div
-                  className="bg-blue-600 h-1.5 rounded-full transition-all duration-300 ease-out"
+                <div 
+                  className="bg-blue-600 h-1.5 rounded-full transition-all duration-300 ease-out" 
                   style={{ width: `${uploadProgress}%` }}
                 ></div>
               </div>
@@ -239,8 +239,8 @@ const SummarizerTab: React.FC = () => {
               <div className="text-gray-500 italic text-center py-10">{t('summarizer.no_docs')}</div>
             )}
             {Array.isArray(documents) && documents.map(doc => (
-              <div
-                key={doc.id}
+              <div 
+                key={doc.id} 
                 className={`mb-1 last:mb-0 group flex items-center justify-between p-2 rounded-md transition-all border ${
                   selectedDocs.includes(doc.id)
                     ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800/50'
@@ -277,7 +277,7 @@ const SummarizerTab: React.FC = () => {
                     </span>
                   </div>
                 </label>
-                <button
+                <button 
                   onClick={(e) => handleDeleteDoc(doc.id, e)}
                   className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-all"
                   title="Usuń dokument"
@@ -323,8 +323,8 @@ const SummarizerTab: React.FC = () => {
         <h4 className="text-sm font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-4">{t('summarizer.history_title')}</h4>
         <div className="grid grid-cols-1 gap-4">
           {summaries.map(s => (
-            <div
-              key={s.id}
+            <div 
+              key={s.id} 
               className="group p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors relative"
               onClick={() => {
                 setSummary(s.summary);
@@ -339,7 +339,7 @@ const SummarizerTab: React.FC = () => {
                   <div className="text-xs text-gray-500 italic">
                     {s.document_ids.length} dokument(y)
                   </div>
-                  <button
+                  <button 
                     onClick={(e) => handleDeleteSummary(s.id, e)}
                     className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-all"
                     title="Usuń podsumowanie"
