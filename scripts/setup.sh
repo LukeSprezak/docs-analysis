@@ -61,13 +61,27 @@ if [ "$USE_DOCKER" = true ]; then
     echo "Waiting for the database to be ready..."
     MAX_RETRIES=30
     COUNT=0
-    until [ "$(docker compose ps --filter "status=running" --format "{{.Service}}" | grep -w db)" ] && [ "$(docker inspect -f {{.State.Health.Status}} $(docker compose ps -q db))" == "healthy" ] || [ $COUNT -eq $MAX_RETRIES ]; do
+
+    until DB_ID=$(docker compose ps -q db) \
+        && [ -n "$DB_ID" ] \
+        && [ "$(docker inspect -f '{{.State.Health.Status}}' "$DB_ID" 2>/dev/null)" == "healthy" ]; do
+        if [ "$COUNT" -ge "$MAX_RETRIES" ]; then
+            echo "Error: db did not become healthy within $((MAX_RETRIES * 2))s." >&2
+            docker compose logs db --tail=20 >&2
+            exit 1
+        fi
         echo "Waiting for db to be healthy... ($COUNT/$MAX_RETRIES)"
         sleep 2
-        COUNT=$((COUNT+1))
+        COUNT=$((COUNT + 1))
     done
+
+    echo "Applying database migrations..."
+    docker compose exec -T api uv run alembic upgrade head
 else
     echo "Skipping Docker-based database setup. Ensure you have a local PostgreSQL instance running if needed."
+    echo "Applying database migrations..."
+    echo "Note: this needs POSTGRES_HOST/PORT in .env to point at your local instance (not 'db')."
+    uv run alembic upgrade head
 fi
 
 echo "Running linting..."
