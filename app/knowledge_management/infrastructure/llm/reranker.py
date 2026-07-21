@@ -8,7 +8,6 @@ import anyio
 from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
 
-from domain.models import Document
 from ...domain.models import Document
 from ...domain.repositories import RerankerService
 
