@@ -50,7 +50,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY . .
 
-CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # Prod — minimal, non-root, healthchecked
 FROM base AS prod
@@ -68,7 +68,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -fsS http://localhost:8000/health || exit 1
 
-CMD ["gunicorn", "main:app", \
+CMD ["gunicorn", "app.main:app", \
      "--worker-class", "uvicorn.workers.UvicornWorker", \
      "--workers", "4", \
      "--bind", "0.0.0.0:8000", \
