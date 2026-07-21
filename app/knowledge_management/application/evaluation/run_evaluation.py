@@ -45,7 +45,7 @@ def format_report(report: EvaluationReport) -> str:
     """Czytelne podsumowanie raportu do konsoli."""
     retrieval = report.retrieval
     lines = [
-        f"Ewaluacja na {retrieval.example_count} pytaniach",
+        f"Evaluation over {retrieval.example_count} questions",
         "",
         "RETRIEVAL:",
         f"  hit_rate@k       : {retrieval.hit_rate:.3f}",
@@ -57,7 +57,7 @@ def format_report(report: EvaluationReport) -> str:
         generation = report.generation
         lines += [
             "",
-            "GENERACJA (LLM-as-judge):",
+            "GENERATION (LLM-as-judge):",
             f"  faithfulness     : {generation.mean_faithfulness:.3f}",
             f"  answer_relevance : {generation.mean_answer_relevance:.3f}",
         ]
