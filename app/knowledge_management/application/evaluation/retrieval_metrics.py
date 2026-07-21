@@ -1,3 +1,10 @@
+"""Czyste, deterministyczne metryki jakości retrievalu.
+
+Funkcje operują na listach identyfikatorów dokumentów (kolejność = ranking z retrievalu)
+oraz na zbiorze identyfikatorów trafnych. Nie mają zależności od LLM ani sieci — to one
+stanowią bramkę regresji nadającą się do CI.
+"""
+
 from collections.abc import Iterable, Sequence
 
 
@@ -6,8 +13,7 @@ def is_hit_at_k(
     relevant_document_ids: Iterable[str],
     k: int,
 ) -> bool:
-    """Is there any match among the first ``k`` documents returned?"""
-
+    """Czy wśród pierwszych ``k`` zwróconych dokumentów jest jakikolwiek trafny."""
     relevant = set(relevant_document_ids)
     return any(document_id in relevant for document_id in retrieved_document_ids[:k])
 
@@ -17,8 +23,11 @@ def precision_at_k(
     relevant_document_ids: Iterable[str],
     k: int,
 ) -> float:
-    """Percentage of hits among the items actually returned (out of min(k, number of items returned))"""
+    """Odsetek trafnych wśród faktycznie zwróconych pozycji (do min(k, liczba zwróconych)).
 
+    Dzielimy przez liczbę realnie zwróconych pozycji, a nie sztywno przez ``k`` — inaczej
+    karalibyśmy retrieval za to, że trafnych dokumentów jest po prostu mniej niż ``k``.
+    """
     if k <= 0:
         return 0.0
     relevant = set(relevant_document_ids)
@@ -34,7 +43,7 @@ def recall_at_k(
     relevant_document_ids: Iterable[str],
     k: int,
 ) -> float:
-    """Percentage of relevant documents covered by the first ``k`` items."""
+    """Odsetek trafnych dokumentów pokrytych przez pierwsze ``k`` pozycji."""
     relevant = set(relevant_document_ids)
     if not relevant:
         return 0.0
@@ -46,7 +55,7 @@ def reciprocal_rank(
     retrieved_document_ids: Sequence[str],
     relevant_document_ids: Iterable[str],
 ) -> float:
-    """1/(position of the first matching document); 0.0 if none matched."""
+    """1/(pozycja pierwszego trafnego dokumentu); 0.0 gdy żaden nie trafił."""
     relevant = set(relevant_document_ids)
     for position, document_id in enumerate(retrieved_document_ids, start=1):
         if document_id in relevant:
@@ -55,5 +64,5 @@ def reciprocal_rank(
 
 
 def mean(values: Sequence[float]) -> float:
-    """Arithmetic mean; 0.0 for an empty sequence (no examples)."""
+    """Średnia arytmetyczna; 0.0 dla pustej sekwencji (brak przykładów)."""
     return sum(values) / len(values) if values else 0.0

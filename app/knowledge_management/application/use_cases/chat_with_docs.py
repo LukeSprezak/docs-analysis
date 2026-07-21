@@ -36,6 +36,10 @@ class ChatWithDocsUseCase:
         history: list[dict[str, Any]] | None,
         conversation_id: str | None,
     ) -> tuple[Conversation, list[dict[str, str]], list[Document]]:
+        """Wczytuje konwersację, buduje historię, przeformułowuje pytanie i wyszukuje.
+
+        Wspólny krok dla wariantu zwykłego i strumieniowego.
+        """
         conversation = (
             await self.conversation_repo.get_by_id(conversation_id, owner_id)
             if conversation_id
@@ -53,6 +57,8 @@ class ChatWithDocsUseCase:
                 if "role" in item and "content" in item
             ]
 
+        # Pytanie zależne od kontekstu ("a co z tym?") → samodzielne, inaczej retrieval
+        # szuka po bezsensownej frazie.
         search_query = (
             await self.rag_service.condense_question(message, prior_messages)
             if prior_messages
@@ -103,6 +109,11 @@ class ChatWithDocsUseCase:
         history: list[dict[str, Any]] | None = None,
         conversation_id: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
+        """Strumieniuje zdarzenia: kolejno {"type":"token",...}, na końcu {"type":"done",...}.
+
+        Repo/condense/retrieval są async (pula połączeń + ainvoke), a sama odpowiedź jest
+        strumieniowana token po tokenie z LLM-a — nic nie blokuje event loopu.
+        """
         conversation, prior_messages, relevant_documents = await self._prepare_context(
             message, owner_id, history, conversation_id
         )

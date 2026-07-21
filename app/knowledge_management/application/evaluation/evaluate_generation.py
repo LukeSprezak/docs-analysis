@@ -11,7 +11,13 @@ from .retrieval_pipeline import RetrievalPipeline
 
 
 class GenerationEvaluator:
-    """Evaluates the quality of the generated responses (LLM-as-judge, RAGAS-style)."""
+    """Ocenia jakość wygenerowanych odpowiedzi (LLM-as-judge, w stylu RAGAS).
+
+    Dla każdego pytania: pobiera kontekst tym samym pipeline'em co produkcja, generuje
+    odpowiedź przez `RAGService`, a następnie sędzia ocenia faithfulness (ugruntowanie
+    w kontekście) i answer relevance (trafność względem pytania).
+    """
+
     def __init__(
         self,
         pipeline: RetrievalPipeline,

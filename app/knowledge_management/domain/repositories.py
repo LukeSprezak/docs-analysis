@@ -50,6 +50,8 @@ class RAGService(ABC):
 
     @abstractmethod
     async def condense_question(self, question: str, history: list[dict[str, str]]) -> str:
+        """Przeformułowuje pytanie zależne od kontekstu rozmowy na samodzielne
+        (do retrievalu). Np. 'a co z tym?' → 'jaka jest złożoność quicksort?'."""
         pass
 
     @abstractmethod
@@ -59,6 +61,7 @@ class RAGService(ABC):
         context: list[Document],
         history: list[dict[str, str]] | None = None,
     ) -> AsyncIterator[str]:
+        """Strumieniuje odpowiedź token po tokenie (do UX czatu na żywo)."""
         ...
 
 
@@ -67,16 +70,26 @@ class RerankerService(ABC):
     async def rerank(
         self, query: str, documents: list[Document], top_k: int = 4
     ) -> list[Document]:
+        """Sortuje kandydatów wg trafności do zapytania i zwraca najlepsze top_k."""
         pass
 
 
 class AnswerJudge(ABC):
+    """Sędzia jakości odpowiedzi (LLM-as-judge) na potrzeby ewaluacji RAG.
+
+    Metryki w stylu RAGAS, ale liczone własnym sędzią (bez ciężkiej zależności
+    `ragas`). Implementacja jest opcjonalna i włączana flagą — patrz factory.
+    """
+
     @abstractmethod
     async def score_faithfulness(self, answer: str, context: list[Document]) -> float:
+        """Na ile odpowiedź jest ugruntowana w dostarczonym kontekście (0.0-1.0).
+        Niska wartość = halucynacja / treść spoza kontekstu."""
         pass
 
     @abstractmethod
     async def score_answer_relevance(self, question: str, answer: str) -> float:
+        """Na ile odpowiedź faktycznie adresuje zadane pytanie (0.0-1.0)."""
         pass
 
 

@@ -1,0 +1,1 @@
+"""Eval harness RAG: metryki retrievalu (deterministyczne) i generacji (LLM-as-judge)."""

@@ -37,6 +37,7 @@ from app.knowledge_management.infrastructure.persistence.postgres_vectorstore_re
 from app.shared.config import settings
 from app.shared.enums import SearchStrategy, VectorStoreProvider
 
+# Singleton instances
 _doc_repo: PostgresDocumentRepo | None = None
 _vector_repo: VectorStoreRepo | None = None
 _summary_repo: PostgresSummaryRepo | None = None
@@ -53,8 +54,11 @@ def get_doc_repo() -> PostgresDocumentRepo:
 def get_vector_repo() -> VectorStoreRepo:
     global _vector_repo
     if _vector_repo is None:
+        # Jawny wybór magazynu wektorowego wg konfiguracji. Bez cichego fallbacku —
+        # gdyby coś nie wstało, błąd ma być widoczny, a nie udawać, że działa.
         embeddings = EmbeddingsFactory.get_embeddings()
         if settings.VECTOR_STORE_PROVIDER == VectorStoreProvider.FAISS:
+            # Hybrid (Postgres FTS) nie dotyczy FAISS — magazyn w pamięci pozostaje wektorowy.
             _vector_repo = FaissVectorStoreRepo(embeddings=embeddings)
         else:
             _vector_repo = PostgresVectorStoreRepo(

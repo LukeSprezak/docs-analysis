@@ -11,13 +11,17 @@ from .retrieval_pipeline import RetrievalPipeline
 
 
 def default_document_identifier(document: Document) -> str:
-    """Parent document ID from the snippet — for relevance matching"""
+    """Identyfikator dokumentu nadrzędnego z fragmentu — do dopasowania trafności.
+
+    Preferuje czytelną nazwę pliku (tak pisze się golden set), z fallbackiem do
+    namespace'owanego ``doc_id`` i wreszcie surowego ``id``.
+    """
     metadata = document.metadata or {}
     return str(metadata.get("filename") or metadata.get("doc_id") or document.id)
 
 
 class RetrievalEvaluator:
-    """It calculates deterministic retrieval metrics on a golden set of reference queries."""
+    """Liczy deterministyczne metryki retrievalu na golden secie pytań referencyjnych."""
 
     def __init__(
         self,

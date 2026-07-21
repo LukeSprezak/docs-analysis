@@ -9,10 +9,9 @@ from .llm_factory import LLMFactory
 class AnswerJudgeFactory:
     @staticmethod
     def get_judge() -> AnswerJudge | None:
-        """Returns a judge according to `EVAL_JUDGE_PROVIDER` or ``None``, when generation evaluation
-        is disabled (by default). ``None`` = means that eval calculates only retrieval metrics, without
-        any LLM calls or an API key required"""
-
+        """Zwraca sędziego wg `EVAL_JUDGE_PROVIDER` albo ``None``, gdy ocena generacji
+        jest wyłączona (domyślnie). ``None`` = eval liczy tylko metryki retrievalu, bez
+        żadnego wywołania LLM ani wymaganego klucza API."""
         if settings.EVAL_JUDGE_PROVIDER == EvalJudgeProvider.LLM:
             return LLMAnswerJudge(llm=LLMFactory.get_llm())
         return None

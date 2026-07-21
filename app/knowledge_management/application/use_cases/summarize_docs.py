@@ -11,6 +11,7 @@ class SummarizeDocsUseCase:
     async def execute(self, doc_ids: list[str], owner_id: str) -> Summary:
         documents = []
         for doc_id in doc_ids:
+            # get_by_id filtruje po owner_id — można streszczać tylko własne dokumenty.
             doc = await self.doc_repo.get_by_id(doc_id, owner_id)
             if doc:
                 documents.append(doc)

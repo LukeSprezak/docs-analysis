@@ -17,10 +17,16 @@ class UploadDocumentUseCase:
         owner_id: str,
         pages: list[Document] | None = None,
     ) -> Document:
+        # Namespace per użytkownik: dwóch userów może wgrać plik o tej samej nazwie
+        # bez kolizji na kluczu (documents.id oraz chunk-id w wektorach). Oryginalna
+        # nazwa zostaje w metadanych ("filename") do wyświetlania.
         namespaced_document_id = f"{owner_id}::{doc_id}"
         document = Document(id=namespaced_document_id, content=content, metadata=metadata)
         await self.doc_repo.save(document, owner_id)
 
+        # Do bazy wektorowej trafiają strony (jeśli loader je rozbił) z
+        # zachowanym numerem strony, albo cały dokument. Fragmentacja na
+        # mniejsze kawałki dzieje się dalej, w repozytorium wektorowym.
         if pages:
             vector_docs = [
                 Document(

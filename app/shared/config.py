@@ -10,6 +10,11 @@ from app.shared.enums import (
 
 
 class Settings(BaseSettings):
+    # Wszystkie wartości pochodzą ze środowiska (.env lub zmienne procesu). Pola bez
+    # wartości domyślnej są WYMAGANE — brak którejkolwiek zmiennej wywoła błąd walidacji
+    # przy starcie (fail-fast), zamiast cicho użyć zaszytego w kodzie fallbacku.
+    # Wyjątkiem są klucze API providerów oraz LOG_FILE: pozostają opcjonalne (None =
+    # nieskonfigurowane), bo konfiguruje się tylko klucz faktycznie używanego providera.
     PROJECT_NAME: str
     API_V1_STR: str
 
@@ -17,13 +22,13 @@ class Settings(BaseSettings):
     VECTOR_STORE_PROVIDER: VectorStoreProvider
     RERANKER_PROVIDER: RerankerProvider
 
-    # Retrieval: how many segments to get from vector search (candidates for rerankingu) and how much
-    # finally, forward it to LLM after sorting.
+    # Retrieval: ile fragmentów pobrać z vector search (kandydaci do rerankingu) i ile
+    # finalnie przekazać do LLM po przesortowaniu.
     RETRIEVAL_CANDIDATE_COUNT: int
     RETRIEVAL_TOP_K: int
 
-    # Candidate Search Strategy: vector lub hybrid (wektory + Postgres FTS,
-    # combined RRF). Hybrid works only for VECTOR_STORE_PROVIDER=postgres.
+    # Strategia wyszukiwania kandydatów: vector lub hybrid (wektory + Postgres FTS,
+    # łączone RRF). Hybrid działa tylko dla VECTOR_STORE_PROVIDER=postgres.
     RETRIEVAL_STRATEGY: SearchStrategy
 
     OPENAI_API_KEY: str | None = None
@@ -33,13 +38,13 @@ class Settings(BaseSettings):
     LLM_MODEL: str | None = None  # e.g. gpt-4o, claude-3-opus, etc.
 
     COHERE_API_KEY: str | None = None
-    COHERE_RERANK_MODEL: str  # multilingual (supports Polish)
+    COHERE_RERANK_MODEL: str  # multilingual (wspiera polski)
 
-    # Local cross-encoder (RERANKER_PROVIDER=bge); required extra `local-reranker`.
-    BGE_RERANKER_MODEL: str  # multilingual (supports Polish)
+    # Lokalny cross-encoder (RERANKER_PROVIDER=bge); wymaga extra `local-reranker`.
+    BGE_RERANKER_MODEL: str  # multilingual (wspiera polski)
 
-    # Eval harness (AI-9). Retrieval metrics always matter (offline, without LLM);
-    # generation metrics (faithfulness/answer-relevance) require an LLM judge.
+    # Eval harness (AI-9). Metryki retrievalu liczą się zawsze (offline, bez LLM);
+    # metryki generacji (faithfulness/answer-relevance) wymagają sędziego LLM.
     EVAL_JUDGE_PROVIDER: EvalJudgeProvider
     EVAL_DATASET_PATH: str
 
@@ -49,36 +54,52 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str
     POSTGRES_PORT: int
 
-    # Connection pool (SQLAlchemy async engine). pool_size = persistent connections kept open,
-    # max_overflow = How many additional ones can be opened during peak load
+    # Pula połączeń (SQLAlchemy async engine). pool_size = stałe połączenia trzymane otwarte,
+    # max_overflow = ile dodatkowych można otworzyć pod szczytem obciążenia.
     DB_POOL_SIZE: int
     DB_MAX_OVERFLOW: int
 
     LOG_LEVEL: str
     LOG_FORMAT: str  # TEXT or JSON
-    LOG_FILE: str | None = None  # log file path; None = log only to stdout
+    LOG_FILE: str | None = None  # ścieżka pliku logów; None = logowanie tylko na stdout
 
     MAX_UPLOAD_SIZE_MB: int
 
+    # Walidacja uploadu: allowlista rozszerzeń (po przecinku, z kropką). Plik spoza listy
+    # jest odrzucany zanim cokolwiek zapiszemy. Dla PDF dodatkowo sprawdzamy nagłówek
+    # `%PDF-` (magic bytes) — samo rozszerzenie i deklarowany content-type są kontrolowane
+    # przez klienta i nie są zaufane.
     ALLOWED_UPLOAD_EXTENSIONS: str
 
+    # Paginacja list (documents/summaries/conversations): domyślny i maksymalny rozmiar
+    # strony. Bez limitu `list_all` ciągnęło wszystkie wiersze właściciela — ryzyko przy
+    # dużej bazie (pamięć + czas zapytania).
     LIST_DEFAULT_LIMIT: int
     LIST_MAX_LIMIT: int
 
+    # CORS: lista originów (po przecinku), którym przeglądarka może wysyłać żądania z
+    # poświadczeniami. NIGDY "*" razem z allow_credentials (niepoprawna i niebezpieczna
+    # kombinacja).
     CORS_ALLOWED_ORIGINS: str
 
+    # Rate limiting (slowapi, per-IP). Chroni przed DoS i niekontrolowanymi kosztami LLM.
+    # Wyłączane w testach (autouse fixture), żeby powtarzane wywołania nie wpadały w limit.
+    # Format limitu wg biblioteki `limits`: "<liczba>/<okno>", np. "20/minute".
     RATE_LIMIT_ENABLED: bool
-    RATE_LIMIT_DEFAULT: str  # global safety net for other endpoints
-    RATE_LIMIT_LLM: str  # qa/ask, chat, chat/stream — expensive LLM calls
-    RATE_LIMIT_UPLOAD: str  # upload — parsing and embedding are computationally intensive
+    RATE_LIMIT_DEFAULT: str  # globalny bezpiecznik dla pozostałych endpointów
+    RATE_LIMIT_LLM: str  # qa/ask, chat, chat/stream — drogie wywołania LLM
+    RATE_LIMIT_UPLOAD: str  # upload — parsowanie + embedding są kosztowne
     RATE_LIMIT_AUTH: str  # login/register — anty-brute-force
 
+    # Autentykacja (JWT). SEKRET MUSI być ustawiony przez env — w produkcji długi (>=32
+    # bajty), losowy. Brak zmiennej zatrzyma start aplikacji.
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
 
     @property
     def cors_allowed_origins_list(self) -> list[str]:
+        """Originy CORS jako lista (parsowanie env po przecinku, puste pomijane)."""
         return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]
 
     @property
@@ -92,4 +113,6 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
 
 
+# Pola wymagane są wypełniane z env/.env w czasie wykonania — mypy tego nie widzi i
+# zgłasza brakujące argumenty konstruktora, stąd celowe wyciszenie.
 settings = Settings()  # type: ignore[call-arg]

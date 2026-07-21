@@ -21,7 +21,11 @@ WYŁĄCZNIE liczbę dziesiętną od 0.0 do 1.0, bez komentarza.
 
 
 class LLMAnswerJudge(AnswerJudge):
-    """Response quality evaluator based on the configured LLM (LLM-as-judge)."""
+    """Sędzia jakości odpowiedzi oparty o skonfigurowany LLM (LLM-as-judge).
+
+    Metryki w stylu RAGAS bez ciężkiej zależności `ragas`. Tolerancyjny parsing wyniku:
+    przy nieparsowalnej odpowiedzi degraduje się do 0.0; wynik przycinany do [0, 1].
+    """
 
     def __init__(self, llm: BaseChatModel):
         self.llm = llm
@@ -51,13 +55,13 @@ class LLMAnswerJudge(AnswerJudge):
         context_text = "\n".join(document.content for document in context)
         return await self._score(
             FAITHFULNESS_SYSTEM_PROMPT,
-            "Context:\n{context}\n\nAnswer:\n{answer}",
+            "Kontekst:\n{context}\n\nOdpowiedź:\n{answer}",
             {"context": context_text, "answer": answer},
         )
 
     async def score_answer_relevance(self, question: str, answer: str) -> float:
         return await self._score(
             ANSWER_RELEVANCE_SYSTEM_PROMPT,
-            "Question:\n{question}\n\nAnswer:\n{answer}",
+            "Pytanie:\n{question}\n\nOdpowiedź:\n{answer}",
             {"question": question, "answer": answer},
         )

@@ -3,7 +3,12 @@ from ...domain.repositories import RerankerService, VectorStoreRepo
 
 
 class RetrievalPipeline:
-    """A Joint Step `search(N candidates) → rerank → top_k`."""
+    """Wspólny krok `search(N kandydatów) → rerank → top_k`.
+
+    Odwzorowuje dokładnie ten sam wzorzec, którego używają use case'y QA/chatu, żeby
+    ewaluacja mierzyła retrieval taki, jaki naprawdę trafia do produkcji. Współdzielony
+    przez evaluator retrievalu i generacji (DRY).
+    """
 
     def __init__(
         self,

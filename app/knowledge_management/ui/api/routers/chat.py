@@ -1,24 +1,153 @@
-from fastapi import APIRouter
+import json
+from collections.abc import AsyncIterator
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Optional
+
+from app.identity.dependencies import get_current_user
+from app.identity.domain.models import User
+from app.knowledge_management.application.use_cases.chat_with_docs import ChatWithDocsUseCase
+from app.knowledge_management.application.use_cases.manage_conversations import (
+    DeleteConversationUseCase,
+    GetConversationUseCase,
+    ListConversationsUseCase,
+)
+from app.knowledge_management.ui.api.sources import format_sources
+from app.shared.config import settings
+from app.shared.dependencies import (
+    get_chat_with_docs_use_case,
+    get_delete_conversation_use_case,
+    get_get_conversation_use_case,
+    get_list_conversations_use_case,
+)
+from app.shared.exceptions import EntityNotFoundException
+from app.shared.rate_limit import limiter
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-class ChatMessage(BaseModel):
+
+class ChatMessageSchema(BaseModel):
     role: str
     content: str
+    timestamp: str | None = None
+
 
 class ChatRequest(BaseModel):
     message: str
-    history: Optional[List[ChatMessage]] = None
+    conversation_id: str | None = None
+    history: list[ChatMessageSchema] | None = None
+
 
 class ChatResponse(BaseModel):
     answer: str
-    sources: List[str]
+    sources: list[str]
+    conversation_id: str
+
+
+class ConversationSchema(BaseModel):
+    id: str
+    title: str
+    messages: list[ChatMessageSchema]
+    created_at: str | None = None
+
 
 @router.post("/", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    return ChatResponse(
-        answer=f"Odpowiedź na czacie: {request.message}",
-        sources=[]
+@limiter.limit(settings.RATE_LIMIT_LLM)
+async def chat(
+    request: Request,
+    chat_request: ChatRequest,
+    use_case: Annotated[ChatWithDocsUseCase, Depends(get_chat_with_docs_use_case)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ChatResponse:
+    history = [m.model_dump() for m in chat_request.history] if chat_request.history else None
+    result, conv_id = await use_case.execute(
+        chat_request.message, current_user.id, history, chat_request.conversation_id
     )
+    return ChatResponse(
+        answer=result.text,
+        sources=format_sources(result.sources),
+        conversation_id=conv_id
+    )
+
+
+@router.post("/stream")
+@limiter.limit(settings.RATE_LIMIT_LLM)
+async def chat_stream(
+    request: Request,
+    chat_request: ChatRequest,
+    use_case: Annotated[ChatWithDocsUseCase, Depends(get_chat_with_docs_use_case)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> StreamingResponse:
+    """Strumieniuje odpowiedź jako NDJSON: linie {"type":"token"...} i na końcu
+    {"type":"done","conversation_id":...,"sources":[...]}."""
+    history = [m.model_dump() for m in chat_request.history] if chat_request.history else None
+    owner_id = current_user.id
+
+    async def generate() -> AsyncIterator[str]:
+        async for event in use_case.execute_stream(
+            chat_request.message, owner_id, history, chat_request.conversation_id
+        ):
+            if event["type"] == "done":
+                payload = {
+                    "type": "done",
+                    "conversation_id": event["conversation_id"],
+                    "sources": format_sources(event["sources"]),
+                }
+            else:
+                payload = event
+            yield json.dumps(payload, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
+
+
+@router.get("/conversations", response_model=list[ConversationSchema])
+async def list_conversations(
+    use_case: Annotated[ListConversationsUseCase, Depends(get_list_conversations_use_case)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    limit: Annotated[int, Query(ge=1, le=settings.LIST_MAX_LIMIT)] = settings.LIST_DEFAULT_LIMIT,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[ConversationSchema]:
+    conversations = await use_case.execute(current_user.id, limit=limit, offset=offset)
+    return [
+        ConversationSchema(
+            id=c.id,
+            title=c.title,
+            messages=[
+                ChatMessageSchema(role=m.role, content=m.content, timestamp=m.timestamp)
+                for m in c.messages
+            ],
+            created_at=c.created_at
+        ) for c in conversations
+    ]
+
+
+@router.get("/conversations/{conversation_id}", response_model=ConversationSchema)
+async def get_conversation(
+    conversation_id: str,
+    use_case: Annotated[GetConversationUseCase, Depends(get_get_conversation_use_case)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ConversationSchema:
+    conversation = await use_case.execute(conversation_id, current_user.id)
+    if not conversation:
+        raise EntityNotFoundException(entity="Conversation", identifier=conversation_id)
+    return ConversationSchema(
+        id=conversation.id,
+        title=conversation.title,
+        messages=[
+            ChatMessageSchema(role=m.role, content=m.content, timestamp=m.timestamp)
+            for m in conversation.messages
+        ],
+        created_at=conversation.created_at
+    )
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(
+    conversation_id: str,
+    use_case: Annotated[DeleteConversationUseCase, Depends(get_delete_conversation_use_case)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    await use_case.execute(conversation_id, current_user.id)
+    return {"status": "success"}

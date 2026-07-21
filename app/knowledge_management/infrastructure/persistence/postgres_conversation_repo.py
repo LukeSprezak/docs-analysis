@@ -8,6 +8,8 @@ from ...domain.repositories import ConversationRepo
 
 
 class PostgresConversationRepo(BasePostgresRepo, ConversationRepo):
+    # Schema zarządzana przez Alembic (migrations/); połączenia ze współdzielonej puli
+    # async przez BasePostgresRepo (nie `psycopg.connect` per-wywołanie).
 
     async def save(self, conversation: Conversation, owner_id: str) -> None:
         messages_json = json.dumps(

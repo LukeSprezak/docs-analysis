@@ -8,6 +8,9 @@ from ...domain.repositories import SummaryRepo
 
 
 class PostgresSummaryRepo(BasePostgresRepo, SummaryRepo):
+    # Schema zarządzana przez Alembic (migrations/); połączenia ze współdzielonej puli
+    # async przez BasePostgresRepo (nie `psycopg.connect` per-wywołanie).
+
     async def save(self, summary: Summary, owner_id: str) -> str:
         row = await self._fetch_one_row(
             "INSERT INTO summaries (text, document_ids, owner_id) "

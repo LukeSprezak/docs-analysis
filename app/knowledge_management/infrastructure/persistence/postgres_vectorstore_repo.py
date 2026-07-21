@@ -18,6 +18,11 @@ logger = logging.getLogger(__name__)
 
 
 def _chunk_key(document: Document) -> str:
+    """Tożsamość fragmentu między rankingami (vector vs keyword) na potrzeby fuzji RRF.
+
+    Odtwarza id fragmentu z metadanych (``"{doc_id}::{chunk_index}"``), żeby ten sam
+    fragment trafiony oboma metodami zliczył się jako jeden, a nie zdublował.
+    """
     return f"{document.metadata.get('doc_id')}::{document.metadata.get('chunk_index')}"
 
 
@@ -34,6 +39,9 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         self.chunker = chunker or TextChunker()
         self.enable_hybrid_search = enable_hybrid_search
 
+        # Współdzielony async engine (ta sama pula co reszta repo). async_mode=True →
+        # używamy metod a* (aadd_documents/asimilarity_search/adelete), bez blokowania
+        # event loopu. Rozszerzenie 'vector' tworzy migracja Alembic, więc create_extension=False.
         self.vector_store = PGVector(
             connection=get_engine(),
             embeddings=self.embeddings,
@@ -44,6 +52,9 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         )
 
     async def add_documents(self, documents: list[Document], owner_id: str) -> None:
+        # Stempel właściciela na każdym dokumencie PRZED chunkingiem — fragmenty
+        # dziedziczą metadane, więc owner_id trafia do każdego wektora i pozwala
+        # filtrować retrieval per użytkownik.
         owned_documents = [
             Document(
                 id=document.id,
@@ -53,9 +64,15 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
             for document in documents
         ]
 
+        # Re-upload: usuń istniejące fragmenty tych dokumentów PRZED wstawieniem nowych.
+        # Bez tego, gdy nowa wersja ma mniej fragmentów, stare z wyższymi indeksami
+        # zostają osierocone w bazie i zanieczyszczają retrieval.
         for document_id in {document.id for document in owned_documents}:
             await self.delete_by_document_id(document_id, owner_id)
 
+        # Dokumenty są dzielone na fragmenty PRZED embedowaniem. Bez tego
+        # cały plik trafiałby do bazy jako jeden wektor i retrieval był
+        # bezużyteczny.
         chunks = self.chunker.chunk_many(owned_documents)
         if not chunks:
             return
@@ -75,11 +92,14 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
     async def _vector_search(
         self, query: str, owner_id: str, top_k: int
     ) -> list[Document]:
+        # Filtr po metadanych: zwracamy tylko fragmenty należące do pytającego.
         results = await self.vector_store.asimilarity_search(
             query, k=top_k, filter={"owner_id": {"$eq": owner_id}}
         )
         return [
             Document(
+                # Prawdziwe id dokumentu nadrzędnego z metadanych fragmentu
+                # (PGVector nie wystawia .id na wyniku → wcześniej leciało "unknown").
                 id=str(res.metadata.get("doc_id") or res.metadata.get("filename") or "unknown"),
                 content=res.page_content,
                 metadata=res.metadata,
@@ -90,6 +110,12 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
     async def _hybrid_search(
         self, query: str, owner_id: str, top_k: int
     ) -> list[Document]:
+        """Łączy wyszukiwanie wektorowe i pełnotekstowe (Postgres FTS) przez RRF.
+
+        Każda metoda pobiera ``top_k`` kandydatów, a fuzja zwraca ``top_k`` najlepszych po
+        złączeniu — fragment trafny w obu rankingach awansuje. Pełnotekstowe daje to, czego
+        wektory gubią: dopasowanie po słowach kluczowych, nazwach własnych, terminach.
+        """
         vector_documents = await self._vector_search(query, owner_id, top_k)
         keyword_documents = await self._keyword_search(query, owner_id, top_k)
         return fuse_documents(
@@ -99,6 +125,12 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
     async def _keyword_search(
         self, query: str, owner_id: str, top_k: int
     ) -> list[Document]:
+        """Pełnotekstowe wyszukiwanie po treści fragmentów (Postgres FTS, ranking ts_rank).
+
+        Konfiguracja 'simple' (bez stemmera zależnego od języka) → przenośne i sensowne dla
+        polskich dokumentów. Uwaga produkcyjna: przy dużej bazie dołożyć indeks GIN na
+        ``to_tsvector('simple', document)`` (zadanie Alembic) — tu liczone w locie.
+        """
         async with db_connection() as connection:
             collection_uuid = await self._collection_uuid(connection)
             if collection_uuid is None:
@@ -143,6 +175,10 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         return row[0] if row else None
 
     async def delete_by_document_id(self, doc_id: str, owner_id: str) -> None:
+        # Próba usunięcia przez LangChain (zadziała tylko, gdy id fragmentu == doc_id —
+        # rzadkie, bo fragmenty mają id "{doc_id}::{index}"). Traktujemy ją jako best-effort:
+        # właściwe usuwanie robi DELETE po metadanych niżej. Błąd na poziomie bazy logujemy
+        # zamiast cicho połykać (wcześniej `suppress(Exception)` ukrywał wszystko).
         try:
             await self.vector_store.adelete(ids=[doc_id])
         except SQLAlchemyError:
@@ -153,9 +189,13 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
                 exc_info=True,
             )
 
+        # Dokładne usuwanie wszystkich fragmentów dokumentu przez metadane. Filtr po
+        # owner_id chroni przed skasowaniem cudzych wektorów przy kolizji nazw.
         async with db_connection() as connection:
             collection_uuid = await self._collection_uuid(connection)
             if collection_uuid is not None:
+                # Dopasowanie po id dokumentu nadrzędnego (namespace'owany per user)
+                # oraz dla pewności po owner_id.
                 await connection.execute(
                     text(
                         "DELETE FROM langchain_pg_embedding "

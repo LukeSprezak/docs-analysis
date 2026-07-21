@@ -4,6 +4,13 @@ from ...domain.models import Document
 
 
 class TextChunker:
+    """Dzieli dokumenty na mniejsze fragmenty pod retrieval.
+
+    Każdy fragment dziedziczy metadane dokumentu źródłowego i dostaje
+    dodatkowo ``doc_id`` (id dokumentu nadrzędnego) oraz ``chunk_index``,
+    dzięki czemu można je później zidentyfikować i zacytować.
+    """
+
     def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 150) -> None:
         self._splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
@@ -13,6 +20,12 @@ class TextChunker:
         )
 
     def chunk_many(self, documents: list[Document]) -> list[Document]:
+        """Dzieli listę dokumentów na fragmenty z globalnie unikalnymi id.
+
+        ``documents`` to zwykle strony jednego pliku (albo pojedynczy
+        dokument dla plików tekstowych). Indeks fragmentu jest wspólny dla
+        całego pliku, więc id ``"{doc_id}::{n}"`` nie kolidują między stronami.
+        """
         chunks: list[Document] = []
         counter = 0
         for document in documents:

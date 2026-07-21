@@ -19,7 +19,7 @@ od najbardziej do najmniej trafnego, np. [3, 0, 5]. Bez komentarza, bez markdown
 
 
 class NoOpReranker(RerankerService):
-    """No re-ranking — returns the first top_k (in the order from the vector search)."""
+    """Brak rerankingu — zwraca pierwsze top_k (kolejność z vector search)."""
 
     async def rerank(
         self, query: str, documents: list[Document], top_k: int = 4
@@ -36,7 +36,7 @@ class CohereRerankResponse(Protocol):
 
 
 class CohereRerankClient(Protocol):
-    """The minimum Cohere client contract required for reranking (facilitates testing)."""
+    """Minimalny kontrakt klienta Cohere potrzebny do rerankingu (ułatwia testy)."""
 
     def rerank(
         self,
@@ -49,7 +49,11 @@ class CohereRerankClient(Protocol):
 
 
 class CohereReranker(RerankerService):
-    """Reranking by Cohere Rerank API (true cross-encoder)."""
+    """Reranking przez Cohere Rerank API (prawdziwy cross-encoder).
+
+    Klient jest wstrzykiwany, dzięki czemu sama klasa nie importuje pakietu `cohere`
+    (zależność pozostaje opcjonalna) i jest łatwo testowalna bez sieci.
+    """
 
     def __init__(self, client: CohereRerankClient, model: str = "rerank-v3.5"):
         self._client = client
@@ -57,10 +61,12 @@ class CohereReranker(RerankerService):
 
     async def rerank(
         self, query: str, documents: list[Document], top_k: int = 4
-    ) -> list[Document | list[Document]] | list[Document]:
+    ) -> list[Document]:
         if len(documents) <= 1:
             return documents[:top_k]
 
+        # Klient Cohere jest synchroniczny — wołanie sieciowe w wątku, żeby nie blokować
+        # event loopu.
         response = await anyio.to_thread.run_sync(
             partial(
                 self._client.rerank,
@@ -74,13 +80,17 @@ class CohereReranker(RerankerService):
 
 
 class CrossEncoderScorer(Protocol):
-    """Local contract cross-encodera (e.g., sentence-transformers CrossEncoder)."""
+    """Kontrakt lokalnego cross-encodera (np. sentence-transformers CrossEncoder)."""
 
     def predict(self, sentence_pairs: list[tuple[str, str]]) -> Sequence[float]: ...
 
 
 class LocalCrossEncoderReranker(RerankerService):
-    """Reranking local cross-encoderem (offline, without API)."""
+    """Reranking lokalnym cross-encoderem (offline, bez API).
+
+    Scorer jest wstrzykiwany, więc klasa nie importuje `sentence-transformers`
+    (ciężka zależność z torchem pozostaje opcjonalna) i jest testowalna bez modelu.
+    """
 
     def __init__(self, scorer: CrossEncoderScorer):
         self._scorer = scorer
@@ -92,6 +102,7 @@ class LocalCrossEncoderReranker(RerankerService):
             return documents[:top_k]
 
         pairs = [(query, document.content) for document in documents]
+        # Predykcja cross-encodera jest CPU-bound (torch) — w wątku, by nie blokować pętli.
         scores = await anyio.to_thread.run_sync(self._scorer.predict, pairs)
 
         ranked = sorted(
@@ -103,14 +114,18 @@ class LocalCrossEncoderReranker(RerankerService):
 
 
 class LLMReranker(RerankerService):
-    """Listwise reranking by a configured LLM."""
+    """Listwise reranking przez skonfigurowany LLM.
+
+    Prosi model o uszeregowanie kandydatów wg trafności i zwraca najlepsze top_k.
+    Przy nieparsowalnej odpowiedzi degraduje się łagodnie do kolejności wejściowej.
+    """
 
     def __init__(self, llm: BaseChatModel):
         self.llm = llm
 
     @staticmethod
     def _parse_ranked_indices(raw: str, document_count: int) -> list[int]:
-        match = re.search(r"\[.*?]", raw, re.DOTALL)
+        match = re.search(r"\[.*?\]", raw, re.DOTALL)
         if not match:
             return []
         try:
@@ -140,7 +155,7 @@ class LLMReranker(RerankerService):
         prompt = ChatPromptTemplate.from_messages(
             [
                 ("system", RERANK_SYSTEM_PROMPT),
-                ("human", "Question:\n{query}\n\nExcerpts:\n{passages}"),
+                ("human", "Pytanie:\n{query}\n\nFragmenty:\n{passages}"),
             ]
         )
         chain = prompt | self.llm
@@ -151,6 +166,8 @@ class LLMReranker(RerankerService):
             return documents[:top_k]
 
         reranked = [documents[index] for index in ranked_indices]
+        # Dołóż fragmenty pominięte przez model (zachowując oryginalną kolejność),
+        # żeby nie zgubić kandydatów przy niekompletnej odpowiedzi.
         ranked_set = set(ranked_indices)
         reranked.extend(
             document for index, document in enumerate(documents) if index not in ranked_set
