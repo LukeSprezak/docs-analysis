@@ -33,5 +33,9 @@ def test_decode_rejects_garbage_token():
 def test_decode_rejects_token_signed_with_other_secret():
     import jwt
 
-    foreign = jwt.encode({"sub": "user-123"}, "another-secret", algorithm="HS256")
+    # Key >= 32 bytes: HS256 warns below that (RFC 7518 3.2). Only the fact that it differs
+    # from JWT_SECRET_KEY matters here, so use a long one and keep the test output clean.
+    foreign = jwt.encode(
+        {"sub": "user-123"}, "a-different-secret-that-is-at-least-32-bytes-long", algorithm="HS256"
+    )
     assert decode_access_token(foreign) is None

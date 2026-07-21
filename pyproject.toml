@@ -41,6 +41,7 @@ dev = [
     "mypy>=1.11.0",
     "httpx>=0.27.0",
     "pytest-asyncio>=1.4.0",
+    "httpx2>=2.7.0",
 ]
 
 [tool.uv]
@@ -72,6 +73,19 @@ ignore = ["E501"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Warnings are errors, so a new one (especially a deprecation in our own code) fails the build
+# instead of piling up in the summary. Below are the only exceptions — each one comes from a
+# dependency we cannot fix from here, so it is silenced narrowly by message, never wholesale.
+filterwarnings = [
+    "error",
+    # langchain-community is being sunset. FAISS has no official standalone package yet
+    # (`langchain-faiss` on PyPI is an unrelated third-party upload, not a LangChain release),
+    # so faiss_vectorstore_repo keeps this import until one ships.
+    "ignore:`langchain-community` is being sunset:DeprecationWarning",
+    # PyMuPDF's SWIG bindings on Python 3.12 — raised while importing the C extension.
+    "ignore:builtin type Swig(PyPacked|PyObject) has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
+]
 
 [tool.mypy]
 python_version = "3.12"
