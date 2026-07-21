@@ -11,7 +11,7 @@ from app.knowledge_management.infrastructure.llm.langchain_rag_service import (
 )
 
 
-def _llm(*contents):
+def _llm(*contents: str) -> GenericFakeChatModel:
     return GenericFakeChatModel(messages=iter([AIMessage(content=c) for c in contents]))
 
 
@@ -50,8 +50,9 @@ def test_answer_prompt_wraps_context_in_delimiters_with_security_instruction():
     prompt = LangChainRAGService._build_answer_prompt()
     rendered = prompt.format_messages(history=[], context="DOCUMENT CONTENT", question="question")
 
-    system_text = rendered[0].content
-    human_text = rendered[-1].content
+    # `content` is typed as str | list[...] on BaseMessage; these prompts always render to text.
+    system_text = str(rendered[0].content)
+    human_text = str(rendered[-1].content)
     # The system prompt states that the context is data, not commands
     # ("nie polecenia" — the prompt in app/ is still written in Polish).
     assert "nie polecenia" in system_text.lower()

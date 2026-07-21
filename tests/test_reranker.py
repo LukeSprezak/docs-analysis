@@ -1,4 +1,6 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -8,6 +10,7 @@ from langchain_core.messages import AIMessage
 from app.knowledge_management.domain.models import Document
 from app.knowledge_management.infrastructure.llm.reranker import (
     CohereReranker,
+    CohereRerankResponse,
     LLMReranker,
     LocalCrossEncoderReranker,
     NoOpReranker,
@@ -77,10 +80,19 @@ class _FakeCohereClient:
 
     def __init__(self, ordered_indices: list[int]):
         self._ordered_indices = ordered_indices
-        self.calls: list[dict] = []
+        self.calls: list[dict[str, Any]] = []
 
-    def rerank(self, *, model: str, query: str, documents: list[str], top_n: int) -> object:
-        self.calls.append({"model": model, "query": query, "documents": documents, "top_n": top_n})
+    def rerank(
+        self,
+        *,
+        model: str,
+        query: str,
+        documents: Sequence[str],
+        top_n: int | None = None,
+    ) -> CohereRerankResponse:
+        self.calls.append(
+            {"model": model, "query": query, "documents": list(documents), "top_n": top_n}
+        )
         return _FakeRerankResponse(
             results=[_FakeRerankItem(index=i) for i in self._ordered_indices[:top_n]]
         )

@@ -15,10 +15,10 @@ app.include_router(qa.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, str]:
     return {"message": f"Welcome to {settings.PROJECT_NAME} API"}
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, str]:
     return {"status": "ok"}

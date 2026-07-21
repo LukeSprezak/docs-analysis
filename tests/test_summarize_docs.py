@@ -1,32 +1,35 @@
 from app.knowledge_management.application.use_cases.summarize_docs import SummarizeDocsUseCase
-from app.knowledge_management.domain.models import Document
+from app.knowledge_management.domain.models import Document, Summary
+from app.knowledge_management.domain.repositories import SummarizerService
+from tests.fakes import StubDocumentRepo, StubSummaryRepo
 
 
-class FakeDocRepo:
-    def __init__(self, documents_by_id):
+class FakeDocRepo(StubDocumentRepo):
+    def __init__(self, documents_by_id: dict[str, Document]) -> None:
         self._documents_by_id = documents_by_id
-        self.get_calls = []
+        self.get_calls: list[tuple[str, str]] = []
 
-    async def get_by_id(self, doc_id, owner_id):
+    async def get_by_id(self, doc_id: str, owner_id: str) -> Document | None:
         self.get_calls.append((doc_id, owner_id))
         return self._documents_by_id.get(doc_id)
 
 
-class FakeSummarizer:
-    def __init__(self):
-        self.received_documents = None
+class FakeSummarizer(SummarizerService):
+    def __init__(self) -> None:
+        self.received_documents: list[Document] | None = None
 
-    async def summarize(self, documents):
+    async def summarize(self, documents: list[Document]) -> str:
         self.received_documents = documents
         return "summary"
 
 
-class FakeSummaryRepo:
-    def __init__(self):
-        self.saved = None
+class FakeSummaryRepo(StubSummaryRepo):
+    def __init__(self) -> None:
+        self.saved: tuple[Summary, str] | None = None
 
-    async def save(self, summary, owner_id):
+    async def save(self, summary: Summary, owner_id: str) -> str:
         self.saved = (summary, owner_id)
+        return summary.id or "s1"
 
 
 async def test_summarize_gathers_only_existing_owned_documents_and_saves():
@@ -48,6 +51,7 @@ async def test_summarize_gathers_only_existing_owned_documents_and_saves():
     # The text comes from the summarizer, but document_ids preserves the original input.
     assert summary.text == "summary"
     assert summary.document_ids == ["a", "missing", "b"]
+    assert summary_repo.saved is not None
     saved_summary, saved_owner = summary_repo.saved
     assert saved_owner == "o1"
     assert saved_summary.text == "summary"

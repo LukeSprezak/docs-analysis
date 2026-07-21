@@ -2,38 +2,32 @@ from app.knowledge_management.application.evaluation.evaluate_retrieval import R
 from app.knowledge_management.application.evaluation.retrieval_pipeline import RetrievalPipeline
 from app.knowledge_management.domain.evaluation import EvaluationExample
 from app.knowledge_management.domain.models import Document
+from tests.fakes import PassthroughReranker, StubVectorStoreRepo
 
 
-class FakeVectorStoreRepo:
+class FakeVectorStoreRepo(StubVectorStoreRepo):
     """Returns the prepared fragments for each query; stores the call parameters."""
 
-    def __init__(self, documents_by_query):
+    def __init__(self, documents_by_query: dict[str, list[Document]]) -> None:
         self._documents_by_query = documents_by_query
-        self.search_top_k = None
-        self.search_owner_id = None
+        self.search_top_k: int | None = None
+        self.search_owner_id: str | None = None
 
-    async def search(self, query, owner_id, top_k=4):
+    async def search(self, query: str, owner_id: str, top_k: int = 4) -> list[Document]:
         self.search_top_k = top_k
         self.search_owner_id = owner_id
         return self._documents_by_query.get(query, [])
-
-    async def add_documents(self, documents, owner_id):  # pragma: no cover
-        raise NotImplementedError
-
-    async def delete_by_document_id(self, document_id, owner_id):  # pragma: no cover
-        raise NotImplementedError
-
-
-class PassthroughReranker:
-    async def rerank(self, query, documents, top_k):
-        return documents[:top_k]
 
 
 def _chunk(filename: str) -> Document:
     return Document(id=f"owner1::{filename}", content="...", metadata={"filename": filename})
 
 
-def _build_evaluator(documents_by_query, candidate_count=20, top_k=4):
+def _build_evaluator(
+    documents_by_query: dict[str, list[Document]],
+    candidate_count: int = 20,
+    top_k: int = 4,
+) -> tuple[RetrievalEvaluator, FakeVectorStoreRepo]:
     vector_repo = FakeVectorStoreRepo(documents_by_query)
     pipeline = RetrievalPipeline(
         vector_repo, PassthroughReranker(), candidate_count=candidate_count, top_k=top_k

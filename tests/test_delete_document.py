@@ -5,28 +5,29 @@ from pathlib import Path
 from app.knowledge_management.application.use_cases.delete_document import DeleteDocumentUseCase
 from app.knowledge_management.domain.models import Document
 from app.shared.storage import STORAGE_DOCUMENTS_DIR
+from tests.fakes import StubDocumentRepo, StubVectorStoreRepo
 
 
-class FakeDocRepo:
-    def __init__(self, document):
+class FakeDocRepo(StubDocumentRepo):
+    def __init__(self, document: Document | None) -> None:
         self._document = document
-        self.deleted = []
-        self.get_args = None
+        self.deleted: list[tuple[str, str]] = []
+        self.get_args: tuple[str, str] | None = None
 
-    async def get_by_id(self, doc_id, owner_id):
+    async def get_by_id(self, doc_id: str, owner_id: str) -> Document | None:
         self.get_args = (doc_id, owner_id)
         return self._document
 
-    async def delete(self, doc_id, owner_id):
+    async def delete(self, doc_id: str, owner_id: str) -> None:
         self.deleted.append((doc_id, owner_id))
 
 
-class FakeVectorRepo:
-    def __init__(self):
-        self.deleted = []
+class FakeVectorRepo(StubVectorStoreRepo):
+    def __init__(self) -> None:
+        self.deleted: list[tuple[str, str]] = []
 
-    async def delete_by_document_id(self, document_id, owner_id):
-        self.deleted.append((document_id, owner_id))
+    async def delete_by_document_id(self, doc_id: str, owner_id: str) -> None:
+        self.deleted.append((doc_id, owner_id))
 
 
 async def test_delete_own_document_removes_file_and_vectors():

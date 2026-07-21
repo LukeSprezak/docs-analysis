@@ -15,19 +15,21 @@ from langchain_core.messages import AIMessage
 
 from app.knowledge_management.application.use_cases.ask_question import AskQuestionUseCase
 from app.knowledge_management.application.use_cases.upload_document import UploadDocumentUseCase
+from app.knowledge_management.domain.models import Document
 from app.knowledge_management.infrastructure.llm.langchain_rag_service import LangChainRAGService
 from app.knowledge_management.infrastructure.llm.reranker import NoOpReranker
 from app.knowledge_management.infrastructure.persistence.faiss_vectorstore_repo import (
     FaissVectorStoreRepo,
 )
 from app.knowledge_management.infrastructure.text.text_chunker import TextChunker
+from tests.fakes import StubDocumentRepo
 
 
-class InMemoryDocRepo:
-    def __init__(self):
-        self.documents = {}
+class InMemoryDocRepo(StubDocumentRepo):
+    def __init__(self) -> None:
+        self.documents: dict[str, tuple[Document, str]] = {}
 
-    async def save(self, document, owner_id):
+    async def save(self, document: Document, owner_id: str) -> None:
         self.documents[document.id] = (document, owner_id)
 
 

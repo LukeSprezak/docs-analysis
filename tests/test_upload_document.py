@@ -1,20 +1,21 @@
 from app.knowledge_management.application.use_cases.upload_document import UploadDocumentUseCase
 from app.knowledge_management.domain.models import Document
+from tests.fakes import StubDocumentRepo, StubVectorStoreRepo
 
 
-class FakeDocRepo:
-    def __init__(self):
-        self.saved = None
+class FakeDocRepo(StubDocumentRepo):
+    def __init__(self) -> None:
+        self.saved: tuple[Document, str] | None = None
 
-    async def save(self, document, owner_id):
+    async def save(self, document: Document, owner_id: str) -> None:
         self.saved = (document, owner_id)
 
 
-class FakeVectorRepo:
-    def __init__(self):
-        self.added = None
+class FakeVectorRepo(StubVectorStoreRepo):
+    def __init__(self) -> None:
+        self.added: tuple[list[Document], str] | None = None
 
-    async def add_documents(self, documents, owner_id):
+    async def add_documents(self, documents: list[Document], owner_id: str) -> None:
         self.added = (documents, owner_id)
 
 
@@ -28,10 +29,12 @@ async def test_upload_namespaces_document_id_and_saves_whole_document_without_pa
 
     # The id is namespaced per user (prevents name collisions between users).
     assert document.id == "o1::a.txt"
+    assert doc_repo.saved is not None
     saved_document, saved_owner = doc_repo.saved
     assert saved_document.id == "o1::a.txt"
     assert saved_owner == "o1"
     # Without pages the whole document goes into the vectors (chunking happens in the vector repo).
+    assert vector_repo.added is not None
     added_documents, added_owner = vector_repo.added
     assert added_owner == "o1"
     assert len(added_documents) == 1
@@ -54,6 +57,7 @@ async def test_upload_with_pages_carries_page_numbers_and_namespaced_id():
         pages=pages,
     )
 
+    assert vector_repo.added is not None
     added_documents, _ = vector_repo.added
     # Every page goes into the vectors with its page number and the namespaced document id.
     assert [document.metadata["page"] for document in added_documents] == [1, 2]

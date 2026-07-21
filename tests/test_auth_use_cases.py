@@ -3,12 +3,13 @@ import pytest
 from app.identity.application.authenticate_user import AuthenticateUserUseCase
 from app.identity.application.register_user import RegisterUserUseCase
 from app.identity.domain.models import User
+from app.identity.domain.repositories import UserRepo
 from app.identity.security import hash_password
 from app.shared.exceptions import AuthenticationException, ValidationException
 
 
-class FakeUserRepo:
-    def __init__(self):
+class FakeUserRepo(UserRepo):
+    def __init__(self) -> None:
         self.users_by_email: dict[str, User] = {}
 
     async def get_by_email(self, email: str) -> User | None:

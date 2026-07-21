@@ -4,61 +4,55 @@ from app.knowledge_management.application.evaluation.evaluate_generation import 
 from app.knowledge_management.application.evaluation.retrieval_pipeline import RetrievalPipeline
 from app.knowledge_management.domain.evaluation import EvaluationExample
 from app.knowledge_management.domain.models import Document
+from tests.fakes import PassthroughReranker, StubAnswerJudge, StubRAGService, StubVectorStoreRepo
 
 
-class FakeVectorStoreRepo:
-    def __init__(self, documents):
+class FakeVectorStoreRepo(StubVectorStoreRepo):
+    def __init__(self, documents: list[Document]) -> None:
         self._documents = documents
 
-    async def search(self, query, owner_id, top_k=4):
+    async def search(self, query: str, owner_id: str, top_k: int = 4) -> list[Document]:
         return self._documents
 
-    async def add_documents(self, documents, owner_id):  # pragma: no cover
-        raise NotImplementedError
 
-    async def delete_by_document_id(self, document_id, owner_id):  # pragma: no cover
-        raise NotImplementedError
+class FakeRAGService(StubRAGService):
+    def __init__(self) -> None:
+        self.received_context: list[Document] | None = None
 
-
-class PassthroughReranker:
-    async def rerank(self, query, documents, top_k):
-        return documents[:top_k]
-
-
-class FakeRAGService:
-    def __init__(self):
-        self.received_context = None
-
-    async def answer_question(self, question, context, history=None):
+    async def answer_question(
+        self,
+        question: str,
+        context: list[Document],
+        history: list[dict[str, str]] | None = None,
+    ) -> str:
         self.received_context = context
         return f"Answer to: {question}"
 
-    async def condense_question(self, question, history):  # pragma: no cover
-        return question
 
-    async def astream_answer(self, question, context, history=None):  # pragma: no cover
-        raise NotImplementedError
-
-
-class FakeJudge:
+class FakeJudge(StubAnswerJudge):
     """Returns fixed scores and records what it was given to score."""
 
-    def __init__(self, faithfulness, answer_relevance):
+    def __init__(self, faithfulness: float, answer_relevance: float) -> None:
         self._faithfulness = faithfulness
         self._answer_relevance = answer_relevance
-        self.faithfulness_context = None
-        self.relevance_args = None
+        self.faithfulness_context: list[Document] | None = None
+        self.relevance_args: tuple[str, str] | None = None
 
-    async def score_faithfulness(self, answer, context):
+    async def score_faithfulness(self, answer: str, context: list[Document]) -> float:
         self.faithfulness_context = context
         return self._faithfulness
 
-    async def score_answer_relevance(self, question, answer):
+    async def score_answer_relevance(self, question: str, answer: str) -> float:
         self.relevance_args = (question, answer)
         return self._answer_relevance
 
 
-def _build(documents, rag_service, judge, top_k=4):
+def _build(
+    documents: list[Document],
+    rag_service: FakeRAGService,
+    judge: FakeJudge,
+    top_k: int = 4,
+) -> GenerationEvaluator:
     pipeline = RetrievalPipeline(
         FakeVectorStoreRepo(documents), PassthroughReranker(), candidate_count=20, top_k=top_k
     )

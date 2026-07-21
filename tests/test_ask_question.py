@@ -1,44 +1,45 @@
 from app.knowledge_management.application.use_cases.ask_question import AskQuestionUseCase
 from app.knowledge_management.domain.models import Document
+from app.knowledge_management.domain.repositories import RerankerService
+from tests.fakes import StubRAGService, StubVectorStoreRepo
 
 
-class FakeVectorStoreRepo:
-    def __init__(self, documents):
+class FakeVectorStoreRepo(StubVectorStoreRepo):
+    def __init__(self, documents: list[Document]) -> None:
         self.documents = documents
-        self.search_top_k = None
-        self.search_owner_id = None
+        self.search_top_k: int | None = None
+        self.search_owner_id: str | None = None
 
-    async def search(self, owner_id, top_k=4):
+    async def search(self, query: str, owner_id: str, top_k: int = 4) -> list[Document]:
         self.search_top_k = top_k
         self.search_owner_id = owner_id
         return self.documents
 
-    async def add_documents(self, documents, owner_id):  # pragma: no cover - not needed in the test
-        raise NotImplementedError
 
-    async def delete_by_document_id(self, document_id, owner_id):  # pragma: no cover
-        raise NotImplementedError
+class FakeReranker(RerankerService):
+    def __init__(self) -> None:
+        self.rerank_top_k: int | None = None
 
-
-class FakeReranker:
-    def __init__(self):
-        self.rerank_top_k = None
-
-    async def rerank(self, documents, top_k):
+    async def rerank(self, query: str, documents: list[Document], top_k: int = 4) -> list[Document]:
         self.rerank_top_k = top_k
         return documents[:top_k]
 
 
-class FakeRAGService:
-    def __init__(self):
-        self.received_documents = None
+class FakeRAGService(StubRAGService):
+    def __init__(self) -> None:
+        self.received_documents: list[Document] | None = None
 
-    async def answer_question(self, question, documents, history=None):
-        self.received_documents = documents
+    async def answer_question(
+        self,
+        question: str,
+        context: list[Document],
+        history: list[dict[str, str]] | None = None,
+    ) -> str:
+        self.received_documents = context
         return "Answer based on the context"
 
 
-def _build_documents(count):
+def _build_documents(count: int) -> list[Document]:
     return [
         Document(id=f"doc::{index}", content=f"excerpt {index}", metadata={})
         for index in range(count)

@@ -1,17 +1,18 @@
 import asyncio
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from app.knowledge_management.application.use_cases.chat_with_docs import ChatWithDocsUseCase
 from app.knowledge_management.domain.models import ChatMessage, Conversation, Document
 
 
-def _vec(docs=None):
+def _vec(docs: list[Document] | None = None) -> MagicMock:
     vec = MagicMock()
     vec.search = AsyncMock(return_value=docs or [])
     return vec
 
 
-def _passthrough_reranker():
+def _passthrough_reranker() -> MagicMock:
     reranker = MagicMock()
     reranker.rerank = AsyncMock(side_effect=lambda query, documents, top_k=4: documents)
     return reranker
@@ -136,7 +137,7 @@ def test_execute_stream_yields_tokens_then_done_and_persists_full_answer():
 
     uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
 
-    async def collect() -> list[dict]:
+    async def collect() -> list[dict[str, Any]]:
         return [
             event async for event in uc.execute_stream("question", "owner1", conversation_id=None)
         ]

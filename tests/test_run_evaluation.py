@@ -9,48 +9,37 @@ from app.knowledge_management.application.evaluation.run_evaluation import (
 )
 from app.knowledge_management.domain.evaluation import EvaluationExample
 from app.knowledge_management.domain.models import Document
+from tests.fakes import PassthroughReranker, StubAnswerJudge, StubRAGService, StubVectorStoreRepo
 
 
-class FakeVectorStoreRepo:
-    async def search(self, query, owner_id, top_k=4):
+class FakeVectorStoreRepo(StubVectorStoreRepo):
+    async def search(self, query: str, owner_id: str, top_k: int = 4) -> list[Document]:
         return [Document(id="d", content="context", metadata={"filename": "good.pdf"})]
 
-    async def add_documents(self, documents, owner_id):  # pragma: no cover
-        raise NotImplementedError
 
-    async def delete_by_document_id(self, document_id, owner_id):  # pragma: no cover
-        raise NotImplementedError
-
-
-class PassthroughReranker:
-    async def rerank(self, query, documents, top_k):
-        return documents[:top_k]
-
-
-class FakeRAGService:
-    async def answer_question(self, question, context, history=None):
+class FakeRAGService(StubRAGService):
+    async def answer_question(
+        self,
+        question: str,
+        context: list[Document],
+        history: list[dict[str, str]] | None = None,
+    ) -> str:
         return "answer"
 
-    async def condense_question(self, question, history):  # pragma: no cover
-        return question
 
-    async def astream_answer(self, question, context, history=None):  # pragma: no cover
-        raise NotImplementedError
-
-
-class FakeJudge:
-    async def score_faithfulness(self, answer, context):
+class FakeJudge(StubAnswerJudge):
+    async def score_faithfulness(self, answer: str, context: list[Document]) -> float:
         return 1.0
 
-    async def score_answer_relevance(self, question, answer):
+    async def score_answer_relevance(self, question: str, answer: str) -> float:
         return 0.5
 
 
-def _pipeline():
+def _pipeline() -> RetrievalPipeline:
     return RetrievalPipeline(FakeVectorStoreRepo(), PassthroughReranker(), 20, 4)
 
 
-def _examples():
+def _examples() -> list[EvaluationExample]:
     return [EvaluationExample(question="Q", relevant_document_ids=["good.pdf"])]
 
 

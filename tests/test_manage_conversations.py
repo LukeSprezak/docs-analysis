@@ -4,25 +4,30 @@ from app.knowledge_management.application.use_cases.manage_conversations import 
     ListConversationsUseCase,
 )
 from app.knowledge_management.domain.models import Conversation
+from tests.fakes import StubConversationRepo
 
 
-class FakeConversationRepo:
-    def __init__(self, conversations=None, single=None):
+class FakeConversationRepo(StubConversationRepo):
+    def __init__(
+        self,
+        conversations: list[Conversation] | None = None,
+        single: Conversation | None = None,
+    ) -> None:
         self._conversations = conversations or []
         self._single = single
-        self.list_args = None
-        self.get_args = None
-        self.deleted = None
+        self.list_args: tuple[str, int, int] | None = None
+        self.get_args: tuple[str, str] | None = None
+        self.deleted: tuple[str, str] | None = None
 
-    async def list_all(self, owner_id, limit=50, offset=0):
+    async def list_all(self, owner_id: str, limit: int = 50, offset: int = 0) -> list[Conversation]:
         self.list_args = (owner_id, limit, offset)
         return self._conversations
 
-    async def get_by_id(self, conversation_id, owner_id):
+    async def get_by_id(self, conversation_id: str, owner_id: str) -> Conversation | None:
         self.get_args = (conversation_id, owner_id)
         return self._single
 
-    async def delete(self, conversation_id, owner_id):
+    async def delete(self, conversation_id: str, owner_id: str) -> None:
         self.deleted = (conversation_id, owner_id)
 
 
