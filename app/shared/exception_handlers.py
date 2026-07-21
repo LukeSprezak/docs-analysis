@@ -20,9 +20,9 @@ async def app_exception_handler(request: Request, exc: Exception) -> JSONRespons
         f"status_code={exc.status_code} "
         f"error_code={exc.error_code} "
         f"context={exc.context}",
-        extra={"error_code": exc.error_code, "context": exc.context}
+        extra={"error_code": exc.error_code, "context": exc.context},
     )
-    
+
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -30,9 +30,9 @@ async def app_exception_handler(request: Request, exc: Exception) -> JSONRespons
                 "message": exc.message,
                 "error_code": exc.error_code,
                 "request_id": get_request_id(),
-                "context": exc.context
+                "context": exc.context,
             }
-        }
+        },
     )
 
 
@@ -42,10 +42,7 @@ async def rate_limit_exceeded_handler(request: Request, exc: Exception) -> JSONR
     to `Exception` (sygnatura wymagana przez Starlette `add_exception_handler`); szczegół
     limitu wyciągamy bezpiecznie przez getattr."""
     detail = getattr(exc, "detail", "rate limit exceeded")
-    logger.warning(
-        f"Rate limit exceeded: {detail}",
-        extra={"request_id": get_request_id()}
-    )
+    logger.warning(f"Rate limit exceeded: {detail}", extra={"request_id": get_request_id()})
 
     return JSONResponse(
         status_code=429,
@@ -53,26 +50,23 @@ async def rate_limit_exceeded_handler(request: Request, exc: Exception) -> JSONR
             "error": {
                 "message": "Too many requests. Please slow down and try again later.",
                 "error_code": "RATE_LIMIT_EXCEEDED",
-                "request_id": get_request_id()
+                "request_id": get_request_id(),
             }
-        }
+        },
     )
 
 
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handler for all unhandled exceptions."""
-    logger.exception(
-        f"Unhandled exception: {exc!s}",
-        extra={"request_id": get_request_id()}
-    )
-    
+    logger.exception(f"Unhandled exception: {exc!s}", extra={"request_id": get_request_id()})
+
     return JSONResponse(
         status_code=500,
         content={
             "error": {
                 "message": "An unexpected error occurred",
                 "error_code": "INTERNAL_SERVER_ERROR",
-                "request_id": get_request_id()
+                "request_id": get_request_id(),
             }
-        }
+        },
     )

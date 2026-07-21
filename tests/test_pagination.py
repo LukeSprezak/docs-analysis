@@ -52,8 +52,6 @@ def test_list_documents_rejects_out_of_range_pagination() -> None:
     app.dependency_overrides[get_doc_repo] = lambda: repo
 
     assert client.get("/api/v1/documents/?limit=0").status_code == 422
-    assert client.get(
-        f"/api/v1/documents/?limit={settings.LIST_MAX_LIMIT + 1}"
-    ).status_code == 422
+    assert client.get(f"/api/v1/documents/?limit={settings.LIST_MAX_LIMIT + 1}").status_code == 422
     assert client.get("/api/v1/documents/?offset=-1").status_code == 422
     app.dependency_overrides.clear()

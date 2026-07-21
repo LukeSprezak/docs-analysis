@@ -23,7 +23,5 @@ class RetrievalPipeline:
         self.top_k = top_k
 
     async def retrieve(self, query: str, owner_id: str) -> list[Document]:
-        candidates = await self.vector_repo.search(
-            query, owner_id, top_k=self.candidate_count
-        )
+        candidates = await self.vector_repo.search(query, owner_id, top_k=self.candidate_count)
         return await self.reranker.rerank(query, candidates, top_k=self.top_k)

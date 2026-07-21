@@ -77,9 +77,7 @@ class FaissVectorStoreRepo(VectorStoreRepo):
         return [
             Document(
                 id=str(
-                    result.metadata.get("doc_id")
-                    or result.metadata.get("filename")
-                    or "unknown"
+                    result.metadata.get("doc_id") or result.metadata.get("filename") or "unknown"
                 ),
                 content=result.page_content,
                 metadata=result.metadata,

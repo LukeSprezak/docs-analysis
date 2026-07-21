@@ -66,9 +66,7 @@ async def chat(
         chat_request.message, current_user.id, history, chat_request.conversation_id
     )
     return ChatResponse(
-        answer=result.text,
-        sources=format_sources(result.sources),
-        conversation_id=conv_id
+        answer=result.text, sources=format_sources(result.sources), conversation_id=conv_id
     )
 
 
@@ -118,8 +116,9 @@ async def list_conversations(
                 ChatMessageSchema(role=m.role, content=m.content, timestamp=m.timestamp)
                 for m in c.messages
             ],
-            created_at=c.created_at
-        ) for c in conversations
+            created_at=c.created_at,
+        )
+        for c in conversations
     ]
 
 
@@ -139,7 +138,7 @@ async def get_conversation(
             ChatMessageSchema(role=m.role, content=m.content, timestamp=m.timestamp)
             for m in conversation.messages
         ],
-        created_at=conversation.created_at
+        created_at=conversation.created_at,
     )
 
 

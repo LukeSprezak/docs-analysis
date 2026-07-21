@@ -19,9 +19,7 @@ from app.shared.database import db_connection
 
 
 class BasePostgresRepo:
-    async def _execute_statement(
-        self, statement: str, parameters: Mapping[str, Any]
-    ) -> None:
+    async def _execute_statement(self, statement: str, parameters: Mapping[str, Any]) -> None:
         """Wykonuje zapytanie bez zwracania wyniku (INSERT/UPDATE/DELETE)."""
         async with db_connection() as connection:
             await connection.execute(text(statement), parameters)

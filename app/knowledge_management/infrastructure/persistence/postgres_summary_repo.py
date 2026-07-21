@@ -36,9 +36,7 @@ class PostgresSummaryRepo(BasePostgresRepo, SummaryRepo):
         )
         return self._row_to_summary(row) if row else None
 
-    async def list_all(
-        self, owner_id: str, limit: int = 50, offset: int = 0
-    ) -> list[Summary]:
+    async def list_all(self, owner_id: str, limit: int = 50, offset: int = 0) -> list[Summary]:
         rows = await self._fetch_all_rows(
             "SELECT text, document_ids, id, created_at FROM summaries "
             "WHERE owner_id = :owner_id ORDER BY created_at DESC "

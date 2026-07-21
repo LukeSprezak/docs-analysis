@@ -67,18 +67,14 @@ class ChatWithDocsUseCase:
         candidates = await self.vector_repo.search(
             search_query, owner_id, top_k=self.candidate_count
         )
-        relevant_documents = await self.reranker.rerank(
-            search_query, candidates, top_k=self.top_k
-        )
+        relevant_documents = await self.reranker.rerank(search_query, candidates, top_k=self.top_k)
         return conversation, prior_messages, relevant_documents
 
     async def _persist_turn(
         self, conversation: Conversation, owner_id: str, message: str, answer_text: str
     ) -> None:
         timestamp = datetime.now().isoformat()
-        conversation.messages.append(
-            ChatMessage(role="user", content=message, timestamp=timestamp)
-        )
+        conversation.messages.append(ChatMessage(role="user", content=message, timestamp=timestamp))
         conversation.messages.append(
             ChatMessage(role="assistant", content=answer_text, timestamp=timestamp)
         )
@@ -89,7 +85,7 @@ class ChatWithDocsUseCase:
         message: str,
         owner_id: str,
         history: list[dict[str, Any]] | None = None,
-        conversation_id: str | None = None
+        conversation_id: str | None = None,
     ) -> tuple[Answer, str]:
         conversation, prior_messages, relevant_documents = await self._prepare_context(
             message, owner_id, history, conversation_id

@@ -36,7 +36,9 @@ def test_chunker_keeps_global_index_across_pages():
     chunker = TextChunker(chunk_size=40, chunk_overlap=0)
     pages = [
         Document(id="f.pdf", content="Page one has its own text here.", metadata={"page": 1}),
-        Document(id="f.pdf", content="Page two has different text to be divided.", metadata={"page": 2}),
+        Document(
+            id="f.pdf", content="Page two has different text to be divided.", metadata={"page": 2}
+        ),
     ]
 
     chunks = chunker.chunk_many(pages)

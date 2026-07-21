@@ -42,9 +42,7 @@ def _build_evaluator(documents_by_query, candidate_count=20, top_k=4):
 
 
 async def test_evaluate_example_extracts_filename_and_scores_hit():
-    evaluator, _ = _build_evaluator(
-        {"Q": [_chunk("good.pdf"), _chunk("other.pdf")]}, top_k=2
-    )
+    evaluator, _ = _build_evaluator({"Q": [_chunk("good.pdf"), _chunk("other.pdf")]}, top_k=2)
     example = EvaluationExample(question="Q", relevant_document_ids=["good.pdf"])
 
     result = await evaluator.evaluate_example(example, owner_id="owner1")

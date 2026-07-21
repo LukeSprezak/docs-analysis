@@ -99,9 +99,7 @@ class LangChainRAGService(RAGService):
         history: list[dict[str, str]] | None = None,
     ) -> str:
         chain = self._build_answer_prompt() | self.llm
-        response = await chain.ainvoke(
-            self._answer_chain_input(question, context, history)
-        )
+        response = await chain.ainvoke(self._answer_chain_input(question, context, history))
         return str(response.content)
 
     async def astream_answer(
@@ -116,9 +114,7 @@ class LangChainRAGService(RAGService):
             if text:
                 yield text
 
-    async def condense_question(
-        self, question: str, history: list[dict[str, str]]
-    ) -> str:
+    async def condense_question(self, question: str, history: list[dict[str, str]]) -> str:
         if not history:
             return question
 

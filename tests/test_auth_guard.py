@@ -64,9 +64,7 @@ def test_valid_token_passes_guard_and_reaches_use_case():
     mock_use_case.execute = AsyncMock(
         return_value=Answer(
             text="answer",
-            sources=[
-                Document(id="u1::doc.pdf", content="x", metadata={"filename": "doc.pdf"})
-            ],
+            sources=[Document(id="u1::doc.pdf", content="x", metadata={"filename": "doc.pdf"})],
         )
     )
     app.dependency_overrides[get_ask_question_use_case] = lambda: mock_use_case

@@ -19,7 +19,9 @@ def test_chat_stream_endpoint_emits_ndjson_tokens_then_done():
         yield {
             "type": "done",
             "conversation_id": "c1",
-            "sources": [Document(id="doc1", content="x", metadata={"filename": "doc1.pdf", "page": 2})],
+            "sources": [
+                Document(id="doc1", content="x", metadata={"filename": "doc1.pdf", "page": 2})
+            ],
         }
 
     mock_use_case.execute_stream = fake_stream
@@ -45,24 +47,21 @@ def test_chat_endpoint():
         text="The answer is 42",
         sources=[Document(id="doc1", content="meaning of life", metadata={})],
     )
-    
+
     mock_use_case = MagicMock()
     mock_use_case.execute = AsyncMock(return_value=(mock_result, "conv123"))
 
     # Override dependency
     app.dependency_overrides[get_chat_with_docs_use_case] = lambda: mock_use_case
-    
-    response = client.post(
-        "/api/v1/chat/",
-        json={"message": "What is the meaning of life?"}
-    )
-    
+
+    response = client.post("/api/v1/chat/", json={"message": "What is the meaning of life?"})
+
     assert response.status_code == 200
     data = response.json()
     assert data["answer"] == "The answer is 42"
     assert data["conversation_id"] == "conv123"
     assert "doc1" in data["sources"]
-    
+
     # Cleanup
     app.dependency_overrides.clear()
 
@@ -70,20 +69,20 @@ def test_chat_endpoint():
 def test_list_conversations():
     mock_conversations = [
         Conversation(id="c1", title="Conv 1", messages=[]),
-        Conversation(id="c2", title="Conv 2", messages=[])
+        Conversation(id="c2", title="Conv 2", messages=[]),
     ]
-    
+
     mock_use_case = MagicMock()
     mock_use_case.execute = AsyncMock(return_value=mock_conversations)
 
     app.dependency_overrides[get_list_conversations_use_case] = lambda: mock_use_case
-    
+
     response = client.get("/api/v1/chat/conversations")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 2
     assert data[0]["id"] == "c1"
     assert data[1]["id"] == "c2"
-    
+
     app.dependency_overrides.clear()

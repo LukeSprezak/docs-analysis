@@ -8,16 +8,14 @@ from app.shared.postgres_repo import BasePostgresRepo
 class PostgresUserRepo(BasePostgresRepo, UserRepo):
     async def get_by_email(self, email: str) -> User | None:
         row = await self._fetch_one_row(
-            "SELECT id, email, hashed_password, created_at "
-            "FROM users WHERE email = :email",
+            "SELECT id, email, hashed_password, created_at FROM users WHERE email = :email",
             {"email": email},
         )
         return self._row_to_user(row)
 
     async def get_by_id(self, user_id: str) -> User | None:
         row = await self._fetch_one_row(
-            "SELECT id, email, hashed_password, created_at "
-            "FROM users WHERE id = :user_id",
+            "SELECT id, email, hashed_password, created_at FROM users WHERE id = :user_id",
             {"user_id": user_id},
         )
         return self._row_to_user(row)

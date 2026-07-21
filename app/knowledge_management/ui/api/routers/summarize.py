@@ -40,7 +40,7 @@ async def summarize_docs(
         summary=result.text,
         document_ids=result.document_ids,
         id=result.id,
-        created_at=result.created_at
+        created_at=result.created_at,
     )
 
 
@@ -54,10 +54,7 @@ async def list_summaries(
     summaries = await summary_repo.list_all(current_user.id, limit=limit, offset=offset)
     return [
         SummarizeResponse(
-            summary=s.text,
-            document_ids=s.document_ids,
-            id=s.id,
-            created_at=s.created_at
+            summary=s.text, document_ids=s.document_ids, id=s.id, created_at=s.created_at
         )
         for s in summaries
     ]

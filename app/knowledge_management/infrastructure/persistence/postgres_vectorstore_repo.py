@@ -89,9 +89,7 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
             return await self._hybrid_search(query, owner_id, top_k)
         return await self._vector_search(query, owner_id, top_k)
 
-    async def _vector_search(
-        self, query: str, owner_id: str, top_k: int
-    ) -> list[Document]:
+    async def _vector_search(self, query: str, owner_id: str, top_k: int) -> list[Document]:
         # Filtr po metadanych: zwracamy tylko fragmenty należące do pytającego.
         results = await self.vector_store.asimilarity_search(
             query, k=top_k, filter={"owner_id": {"$eq": owner_id}}
@@ -107,9 +105,7 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
             for res in results
         ]
 
-    async def _hybrid_search(
-        self, query: str, owner_id: str, top_k: int
-    ) -> list[Document]:
+    async def _hybrid_search(self, query: str, owner_id: str, top_k: int) -> list[Document]:
         """Łączy wyszukiwanie wektorowe i pełnotekstowe (Postgres FTS) przez RRF.
 
         Każda metoda pobiera ``top_k`` kandydatów, a fuzja zwraca ``top_k`` najlepszych po
@@ -118,13 +114,9 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         """
         vector_documents = await self._vector_search(query, owner_id, top_k)
         keyword_documents = await self._keyword_search(query, owner_id, top_k)
-        return fuse_documents(
-            [vector_documents, keyword_documents], top_k=top_k, key_of=_chunk_key
-        )
+        return fuse_documents([vector_documents, keyword_documents], top_k=top_k, key_of=_chunk_key)
 
-    async def _keyword_search(
-        self, query: str, owner_id: str, top_k: int
-    ) -> list[Document]:
+    async def _keyword_search(self, query: str, owner_id: str, top_k: int) -> list[Document]:
         """Pełnotekstowe wyszukiwanie po treści fragmentów (Postgres FTS, ranking ts_rank).
 
         Konfiguracja 'simple' (bez stemmera zależnego od języka) → przenośne i sensowne dla

@@ -19,25 +19,22 @@ def test_summarize_endpoint():
         text="This is a summary",
         document_ids=["doc1", "doc2"],
         id="sum123",
-        created_at="2024-01-01"
+        created_at="2024-01-01",
     )
-    
+
     mock_use_case = MagicMock()
     mock_use_case.execute = AsyncMock(return_value=mock_result)
 
     app.dependency_overrides[get_summarize_docs_use_case] = lambda: mock_use_case
-    
-    response = client.post(
-        "/api/v1/summarize/",
-        json={"document_ids": ["doc1", "doc2"]}
-    )
-    
+
+    response = client.post("/api/v1/summarize/", json={"document_ids": ["doc1", "doc2"]})
+
     assert response.status_code == 200
     data = response.json()
     assert data["summary"] == "This is a summary"
     assert data["id"] == "sum123"
     assert data["document_ids"] == ["doc1", "doc2"]
-    
+
     app.dependency_overrides.clear()
 
 
@@ -57,19 +54,19 @@ def test_summarizer_strips_injected_delimiters_from_documents():
 def test_list_summaries():
     mock_summaries = [
         Summary(text="S1", document_ids=["d1"], id="id1"),
-        Summary(text="S2", document_ids=["d2"], id="id2")
+        Summary(text="S2", document_ids=["d2"], id="id2"),
     ]
-    
+
     mock_repo = MagicMock()
     mock_repo.list_all = AsyncMock(return_value=mock_summaries)
 
     app.dependency_overrides[get_summary_repo] = lambda: mock_repo
-    
+
     response = client.get("/api/v1/summarize/")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 2
     assert data[0]["summary"] == "S1"
-    
+
     app.dependency_overrides.clear()

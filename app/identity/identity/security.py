@@ -25,9 +25,7 @@ def hash_password(plain_password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Sprawdza, czy hasło pasuje do zapisanego hasha. Fail-closed na uszkodzonym hashu."""
     try:
-        return bcrypt.checkpw(
-            plain_password.encode("utf-8"), hashed_password.encode("utf-8")
-        )
+        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
     except ValueError:
         return False
 
@@ -44,9 +42,7 @@ def decode_access_token(token: str) -> str | None:
     """Weryfikuje podpis i wygaśnięcie; zwraca id użytkownika (`sub`) albo None, gdy
     token jest nieprawidłowy/wygasły. Nie rzuca — wołający decyduje, jak zareagować."""
     try:
-        payload = jwt.decode(
-            token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
-        )
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
     except jwt.PyJWTError:
         return None
     subject = payload.get("sub")

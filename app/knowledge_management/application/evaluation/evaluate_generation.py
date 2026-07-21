@@ -37,17 +37,13 @@ class GenerationEvaluator:
             question=example.question,
             answer=answer,
             faithfulness=await self.judge.score_faithfulness(answer, context),
-            answer_relevance=await self.judge.score_answer_relevance(
-                example.question, answer
-            ),
+            answer_relevance=await self.judge.score_answer_relevance(example.question, answer),
         )
 
     async def evaluate(
         self, examples: Sequence[EvaluationExample], owner_id: str
     ) -> tuple[GenerationMetrics, list[GenerationExampleResult]]:
-        results = [
-            await self.evaluate_example(example, owner_id) for example in examples
-        ]
+        results = [await self.evaluate_example(example, owner_id) for example in examples]
         metrics = GenerationMetrics(
             example_count=len(results),
             mean_faithfulness=retrieval_metrics.mean([r.faithfulness for r in results]),

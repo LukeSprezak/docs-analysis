@@ -23,9 +23,7 @@ class AskQuestionUseCase:
         candidates = await self.vector_repo.search(
             question_text, owner_id, top_k=self.candidate_count
         )
-        relevant_docs = await self.reranker.rerank(
-            question_text, candidates, top_k=self.top_k
-        )
+        relevant_docs = await self.reranker.rerank(question_text, candidates, top_k=self.top_k)
         answer_text = await self.rag_service.answer_question(question_text, relevant_docs)
 
         return Answer(text=answer_text, sources=relevant_docs)

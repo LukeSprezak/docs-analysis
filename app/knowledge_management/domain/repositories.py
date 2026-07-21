@@ -14,9 +14,7 @@ class DocumentRepo(ABC):
         pass
 
     @abstractmethod
-    async def list_all(
-        self, owner_id: str, limit: int = 50, offset: int = 0
-    ) -> list[Document]:
+    async def list_all(self, owner_id: str, limit: int = 50, offset: int = 0) -> list[Document]:
         pass
 
     @abstractmethod
@@ -67,9 +65,7 @@ class RAGService(ABC):
 
 class RerankerService(ABC):
     @abstractmethod
-    async def rerank(
-        self, query: str, documents: list[Document], top_k: int = 4
-    ) -> list[Document]:
+    async def rerank(self, query: str, documents: list[Document], top_k: int = 4) -> list[Document]:
         """Sortuje kandydatów wg trafności do zapytania i zwraca najlepsze top_k."""
         pass
 
@@ -109,9 +105,7 @@ class SummaryRepo(ABC):
         pass
 
     @abstractmethod
-    async def list_all(
-        self, owner_id: str, limit: int = 50, offset: int = 0
-    ) -> list[Summary]:
+    async def list_all(self, owner_id: str, limit: int = 50, offset: int = 0) -> list[Summary]:
         pass
 
     @abstractmethod
@@ -129,9 +123,7 @@ class ConversationRepo(ABC):
         pass
 
     @abstractmethod
-    async def list_all(
-        self, owner_id: str, limit: int = 50, offset: int = 0
-    ) -> list[Conversation]:
+    async def list_all(self, owner_id: str, limit: int = 50, offset: int = 0) -> list[Conversation]:
         pass
 
     @abstractmethod

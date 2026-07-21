@@ -67,9 +67,7 @@ def test_chat_first_turn_skips_condense():
     vec = _vec()
 
     uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
-    _, cid = asyncio.run(
-        uc.execute("First question", "owner1", history=None, conversation_id=None)
-    )
+    _, cid = asyncio.run(uc.execute("First question", "owner1", history=None, conversation_id=None))
 
     rag.condense_question.assert_not_called()
     vec.search.assert_called_once()
@@ -139,7 +137,9 @@ def test_execute_stream_yields_tokens_then_done_and_persists_full_answer():
     uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
 
     async def collect() -> list[dict]:
-        return [event async for event in uc.execute_stream("question", "owner1", conversation_id=None)]
+        return [
+            event async for event in uc.execute_stream("question", "owner1", conversation_id=None)
+        ]
 
     events = asyncio.run(collect())
 

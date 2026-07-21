@@ -59,7 +59,7 @@ translations = {
         "faq.a4_1": "Przejdź do zakładki Podsumowanie.",
         "faq.a4_2": "Wybierz jeden lub więcej dokumentów z Bazy wiedzy, zaznaczając pola wyboru.",
         "faq.a4_3": "Kliknij przycisk Podsumuj wybrane, aby wygenerować zwięzłe podsumowanie wybranych plików.",
-        "faq.q5": "Co jeśli otrzymam błąd \"Nie znaleziono odpowiednich dokumentów\"?",
+        "faq.q5": 'Co jeśli otrzymam błąd "Nie znaleziono odpowiednich dokumentów"?',
         "faq.a5_1": "Oznacza to, że system nie mógł znaleźć informacji związanych z Twoim pytaniem w przesłanych plikach.",
         "faq.a5_2": "Upewnij się, że przesłałeś właściwe dokumenty i że zawierają one szukane informacje.",
         "common.confirm_delete": "Czy na pewno chcesz to usunąć?",
@@ -147,7 +147,7 @@ translations = {
         "faq.a4_1": "Go to the Summarizer tab.",
         "faq.a4_2": "Select one or more documents from your Knowledge Base by clicking the checkboxes.",
         "faq.a4_3": "Click the Summarize Selected button to generate a concise summary of the chosen files.",
-        "faq.q5": "What if I get an error \"No relevant documents found\"?",
+        "faq.q5": 'What if I get an error "No relevant documents found"?',
         "faq.a5_1": "This means the system couldn't find information related to your question in the uploaded files.",
         "faq.a5_2": "Make sure you have uploaded the correct documents and that they contain the information you are looking for.",
         "common.confirm_delete": "Are you sure you want to delete this?",
@@ -174,5 +174,5 @@ translations = {
         "auth.error_generic": "An authentication error occurred. Please try again.",
         "auth.error_fields_required": "Please enter both email and password.",
         "auth.session_expired": "Your session expired. Please sign in again.",
-    }
+    },
 }

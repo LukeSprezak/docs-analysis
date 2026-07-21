@@ -32,6 +32,8 @@ class EmbeddingsFactory:
             case LLMProvider.ANTHROPIC:
                 if settings.OPENAI_API_KEY:
                     return OpenAIEmbeddings(api_key=_as_secret(settings.OPENAI_API_KEY))
-                raise ValueError("Anthropic provider selected but no Embeddings fallback available. Please provide OPENAI_API_KEY.")
+                raise ValueError(
+                    "Anthropic provider selected but no Embeddings fallback available. Please provide OPENAI_API_KEY."
+                )
             case _:
                 raise ValueError(f"Unsupported Embeddings provider: {provider}")

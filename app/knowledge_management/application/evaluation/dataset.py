@@ -14,9 +14,7 @@ def parse_examples(raw_examples: list[dict[str, Any]]) -> list[EvaluationExample
         if not isinstance(question, str) or not question.strip():
             raise ValueError(f"Przykład #{index}: brak niepustego pola 'question'.")
         if not isinstance(relevant, list) or not all(isinstance(item, str) for item in relevant):
-            raise ValueError(
-                f"Przykład #{index}: 'relevant_document_ids' musi być listą tekstów."
-            )
+            raise ValueError(f"Przykład #{index}: 'relevant_document_ids' musi być listą tekstów.")
         reference_answer = record.get("reference_answer")
         if reference_answer is not None and not isinstance(reference_answer, str):
             raise ValueError(f"Przykład #{index}: 'reference_answer' musi być tekstem lub null.")

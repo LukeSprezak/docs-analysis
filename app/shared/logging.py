@@ -15,6 +15,7 @@ class JSONFormatter(logging.Formatter):
     JSON formatter for log records.
     Inspired by Monolog's JsonFormatter.
     """
+
     def format(self, record: logging.LogRecord) -> str:
         log_record = {
             "timestamp": datetime.fromtimestamp(record.created).isoformat(),
@@ -23,23 +24,42 @@ class JSONFormatter(logging.Formatter):
             "logger": record.name,
             "request_id": get_request_id(),
         }
-        
+
         # Add exception info if it exists
         if record.exc_info:
             log_record["exception"] = self.formatException(record.exc_info)
-            
+
         # Add extra fields (from record.__dict__)
         # We skip standard LogRecord attributes
         standard_attrs = {
-            "args", "asctime", "created", "exc_info", "exc_text", "filename",
-            "funcName", "levelname", "levelno", "lineno", "message", "module",
-            "msecs", "msg", "name", "pathname", "process", "processName",
-            "relativeCreated", "stack_info", "thread", "threadName", "request_id"
+            "args",
+            "asctime",
+            "created",
+            "exc_info",
+            "exc_text",
+            "filename",
+            "funcName",
+            "levelname",
+            "levelno",
+            "lineno",
+            "message",
+            "module",
+            "msecs",
+            "msg",
+            "name",
+            "pathname",
+            "process",
+            "processName",
+            "relativeCreated",
+            "stack_info",
+            "thread",
+            "threadName",
+            "request_id",
         }
         for key, value in record.__dict__.items():
             if key not in standard_attrs:
                 log_record[key] = value
-            
+
         return json.dumps(log_record)
 
 
@@ -47,6 +67,7 @@ class RequestIDFilter(logging.Filter):
     """
     Filter that adds request_id to log records.
     """
+
     def filter(self, record: logging.LogRecord) -> bool:
         record.request_id = get_request_id()
         return True
@@ -59,7 +80,7 @@ def setup_logging() -> None:
     """
     log_level = settings.LOG_LEVEL.upper()
     log_format = settings.LOG_FORMAT.upper()
-    
+
     # Define the logging configuration
     config: dict[str, Any] = {
         "version": 1,
@@ -104,7 +125,7 @@ def setup_logging() -> None:
             },
         },
     }
-    
+
     # Add file handler if LOG_FILE is configured
     if settings.LOG_FILE:
         log_file_path = settings.LOG_FILE
@@ -112,7 +133,7 @@ def setup_logging() -> None:
         log_dir = os.path.dirname(log_file_path)
         if log_dir:
             os.makedirs(log_dir, exist_ok=True)
-            
+
         config["handlers"]["file"] = {
             "class": "logging.handlers.RotatingFileHandler",
             "formatter": "json" if log_format == "JSON" else "standard",
@@ -126,5 +147,5 @@ def setup_logging() -> None:
         config["loggers"][""]["handlers"].append("file")
         config["loggers"]["uvicorn"]["handlers"].append("file")
         config["loggers"]["app"]["handlers"].append("file")
-        
+
     logging.config.dictConfig(config)

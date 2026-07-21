@@ -9,7 +9,9 @@ client = TestClient(app, raise_server_exceptions=False)
 def test_app_exception_handler():
     @app.get("/test-exception")
     async def test_route():
-        raise AppException(message="Test error", status_code=400, error_code="TEST_ERROR", context={"foo": "bar"})
+        raise AppException(
+            message="Test error", status_code=400, error_code="TEST_ERROR", context={"foo": "bar"}
+        )
 
     response = client.get("/test-exception")
     assert response.status_code == 400

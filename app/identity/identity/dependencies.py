@@ -46,9 +46,7 @@ def get_authenticate_user_use_case(
 
 
 async def get_current_user(
-    credentials: Annotated[
-        HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)
-    ],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
     user_repo: Annotated[PostgresUserRepo, Depends(get_user_repo)],
 ) -> User:
     """Wyciąga i weryfikuje token Bearer, ładuje użytkownika. Rzuca 401, gdy brak

@@ -31,15 +31,12 @@ class PostgresDocumentRepo(BasePostgresRepo, DocumentRepo):
 
     async def get_by_id(self, doc_id: str, owner_id: str) -> Document | None:
         row = await self._fetch_one_row(
-            "SELECT id, content, metadata FROM documents "
-            "WHERE id = :id AND owner_id = :owner_id",
+            "SELECT id, content, metadata FROM documents WHERE id = :id AND owner_id = :owner_id",
             {"id": doc_id, "owner_id": owner_id},
         )
         return self._row_to_document(row) if row else None
 
-    async def list_all(
-        self, owner_id: str, limit: int = 50, offset: int = 0
-    ) -> list[Document]:
+    async def list_all(self, owner_id: str, limit: int = 50, offset: int = 0) -> list[Document]:
         rows = await self._fetch_all_rows(
             "SELECT id, content, metadata FROM documents "
             "WHERE owner_id = :owner_id ORDER BY created_at DESC "

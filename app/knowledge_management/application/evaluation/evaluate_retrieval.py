@@ -53,9 +53,7 @@ class RetrievalEvaluator:
     async def evaluate(
         self, examples: Sequence[EvaluationExample], owner_id: str
     ) -> tuple[RetrievalMetrics, list[RetrievalExampleResult]]:
-        results = [
-            await self.evaluate_example(example, owner_id) for example in examples
-        ]
+        results = [await self.evaluate_example(example, owner_id) for example in examples]
         metrics = RetrievalMetrics(
             example_count=len(results),
             hit_rate=retrieval_metrics.mean([1.0 if r.is_hit else 0.0 for r in results]),

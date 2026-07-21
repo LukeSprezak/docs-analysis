@@ -5,6 +5,7 @@ from app.shared.translations import translations
 
 router = APIRouter(tags=["translations"])
 
+
 @router.get("/translations/{lang}")
 async def get_translations(lang: str) -> dict[str, str]:
     if lang not in translations:

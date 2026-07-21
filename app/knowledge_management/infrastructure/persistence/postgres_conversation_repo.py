@@ -43,9 +43,7 @@ class PostgresConversationRepo(BasePostgresRepo, ConversationRepo):
         )
         return self._row_to_conversation(row) if row else None
 
-    async def list_all(
-        self, owner_id: str, limit: int = 50, offset: int = 0
-    ) -> list[Conversation]:
+    async def list_all(self, owner_id: str, limit: int = 50, offset: int = 0) -> list[Conversation]:
         rows = await self._fetch_all_rows(
             "SELECT id, title, messages, created_at FROM conversations "
             "WHERE owner_id = :owner_id ORDER BY created_at DESC "
@@ -63,9 +61,7 @@ class PostgresConversationRepo(BasePostgresRepo, ConversationRepo):
     def _row_to_conversation(self, row: Any) -> Conversation:
         messages_raw = self._deserialize_json_column(row[2])
         messages = [
-            ChatMessage(
-                role=m["role"], content=m["content"], timestamp=m.get("timestamp")
-            )
+            ChatMessage(role=m["role"], content=m["content"], timestamp=m.get("timestamp"))
             for m in messages_raw
         ]
         return Conversation(

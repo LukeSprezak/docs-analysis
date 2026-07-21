@@ -21,9 +21,7 @@ od najbardziej do najmniej trafnego, np. [3, 0, 5]. Bez komentarza, bez markdown
 class NoOpReranker(RerankerService):
     """Brak rerankingu — zwraca pierwsze top_k (kolejność z vector search)."""
 
-    async def rerank(
-        self, query: str, documents: list[Document], top_k: int = 4
-    ) -> list[Document]:
+    async def rerank(self, query: str, documents: list[Document], top_k: int = 4) -> list[Document]:
         return documents[:top_k]
 
 
@@ -59,9 +57,7 @@ class CohereReranker(RerankerService):
         self._client = client
         self._model = model
 
-    async def rerank(
-        self, query: str, documents: list[Document], top_k: int = 4
-    ) -> list[Document]:
+    async def rerank(self, query: str, documents: list[Document], top_k: int = 4) -> list[Document]:
         if len(documents) <= 1:
             return documents[:top_k]
 
@@ -95,9 +91,7 @@ class LocalCrossEncoderReranker(RerankerService):
     def __init__(self, scorer: CrossEncoderScorer):
         self._scorer = scorer
 
-    async def rerank(
-        self, query: str, documents: list[Document], top_k: int = 4
-    ) -> list[Document]:
+    async def rerank(self, query: str, documents: list[Document], top_k: int = 4) -> list[Document]:
         if len(documents) <= 1:
             return documents[:top_k]
 
@@ -143,9 +137,7 @@ class LLMReranker(RerankerService):
                 indices.append(value)
         return indices
 
-    async def rerank(
-        self, query: str, documents: list[Document], top_k: int = 4
-    ) -> list[Document]:
+    async def rerank(self, query: str, documents: list[Document], top_k: int = 4) -> list[Document]:
         if len(documents) <= 1:
             return documents[:top_k]
 

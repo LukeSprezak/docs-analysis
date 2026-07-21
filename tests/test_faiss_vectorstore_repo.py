@@ -20,7 +20,13 @@ async def test_search_on_empty_store_returns_empty():
 async def test_add_then_search_returns_real_document_id_from_metadata():
     repo = _repo()
     await repo.add_documents(
-        [Document(id="report.pdf", content="Content about quicksort", metadata={"filename": "report.pdf", "page": 1})],
+        [
+            Document(
+                id="report.pdf",
+                content="Content about quicksort",
+                metadata={"filename": "report.pdf", "page": 1},
+            )
+        ],
         owner_id="u1",
     )
 
@@ -48,8 +54,12 @@ async def test_add_documents_chunks_long_content():
 
 async def test_delete_by_document_id_removes_only_that_document():
     repo = _repo()
-    await repo.add_documents([Document(id="a.txt", content="alpha", metadata={"filename": "a.txt"})], owner_id="u1")
-    await repo.add_documents([Document(id="b.txt", content="beta", metadata={"filename": "b.txt"})], owner_id="u1")
+    await repo.add_documents(
+        [Document(id="a.txt", content="alpha", metadata={"filename": "a.txt"})], owner_id="u1"
+    )
+    await repo.add_documents(
+        [Document(id="b.txt", content="beta", metadata={"filename": "b.txt"})], owner_id="u1"
+    )
 
     await repo.delete_by_document_id("a.txt", owner_id="u1")
 
@@ -90,11 +100,23 @@ async def test_search_isolates_documents_by_owner():
     # Retrieval isolation: a user's query never returns someone else's fragments.
     repo = _repo()
     await repo.add_documents(
-        [Document(id="secret.pdf", content="alice's secret about quicksort", metadata={"filename": "secret.pdf"})],
+        [
+            Document(
+                id="secret.pdf",
+                content="alice's secret about quicksort",
+                metadata={"filename": "secret.pdf"},
+            )
+        ],
         owner_id="alice",
     )
     await repo.add_documents(
-        [Document(id="bob.pdf", content="bob's notes about quicksort", metadata={"filename": "bob.pdf"})],
+        [
+            Document(
+                id="bob.pdf",
+                content="bob's notes about quicksort",
+                metadata={"filename": "bob.pdf"},
+            )
+        ],
         owner_id="bob",
     )
 

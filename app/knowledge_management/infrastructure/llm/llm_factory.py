@@ -24,7 +24,7 @@ class LLMFactory:
             case LLMProvider.OPENAI:
                 return ChatOpenAI(
                     api_key=_as_secret(settings.OPENAI_API_KEY),
-                    model=settings.LLM_MODEL or "gpt-4o-mini"
+                    model=settings.LLM_MODEL or "gpt-4o-mini",
                 )
             case LLMProvider.ANTHROPIC:
                 # langchain_anthropic typuje api_key jako wymagany SecretStr oraz timeout/stop
@@ -40,12 +40,11 @@ class LLMFactory:
             case LLMProvider.GOOGLE:
                 return ChatGoogleGenerativeAI(
                     google_api_key=settings.GOOGLE_API_KEY,
-                    model=settings.LLM_MODEL or "gemini-1.5-flash"
+                    model=settings.LLM_MODEL or "gemini-1.5-flash",
                 )
             case LLMProvider.OLLAMA:
                 return ChatOllama(
-                    base_url=settings.OLLAMA_BASE_URL,
-                    model=settings.LLM_MODEL or "llama3"
+                    base_url=settings.OLLAMA_BASE_URL, model=settings.LLM_MODEL or "llama3"
                 )
             case _:
                 raise ValueError(f"Unsupported LLM provider: {provider}")

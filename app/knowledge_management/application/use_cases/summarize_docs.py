@@ -3,7 +3,9 @@ from ...domain.repositories import DocumentRepo, SummarizerService, SummaryRepo
 
 
 class SummarizeDocsUseCase:
-    def __init__(self, doc_repo: DocumentRepo, summarizer: SummarizerService, summary_repo: SummaryRepo):
+    def __init__(
+        self, doc_repo: DocumentRepo, summarizer: SummarizerService, summary_repo: SummaryRepo
+    ):
         self.doc_repo = doc_repo
         self.summarizer = summarizer
         self.summary_repo = summary_repo

@@ -35,9 +35,7 @@ async def build_report(
     retrieval, retrieval_details = await retrieval_evaluator.evaluate(examples, owner_id)
     report = EvaluationReport(retrieval=retrieval, retrieval_details=retrieval_details)
     if generation_evaluator is not None:
-        generation, generation_details = await generation_evaluator.evaluate(
-            examples, owner_id
-        )
+        generation, generation_details = await generation_evaluator.evaluate(examples, owner_id)
         report.generation = generation
         report.generation_details = generation_details
     return report
