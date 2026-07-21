@@ -1,7 +1,8 @@
 from fastapi import FastAPI
+
+from app.knowledge_management.ui.api.routers import chat, documents, qa, summarize
 from app.shared.config import settings
 from app.shared.logging import setup_logging
-from app.knowledge_management.ui.api.routers import documents, summarize, chat, qa
 
 setup_logging()
 
