@@ -21,10 +21,10 @@ WYŁĄCZNIE liczbę dziesiętną od 0.0 do 1.0, bez komentarza.
 
 
 class LLMAnswerJudge(AnswerJudge):
-    """Sędzia jakości odpowiedzi oparty o skonfigurowany LLM (LLM-as-judge).
+    """Answer quality judge backed by the configured LLM (LLM-as-judge).
 
-    Metryki w stylu RAGAS bez ciężkiej zależności `ragas`. Tolerancyjny parsing wyniku:
-    przy nieparsowalnej odpowiedzi degraduje się do 0.0; wynik przycinany do [0, 1].
+    RAGAS-style metrics without the heavy `ragas` dependency. Lenient score parsing: an
+    unparseable response degrades to 0.0, and the score is clamped to [0, 1].
     """
 
     def __init__(self, llm: BaseChatModel):

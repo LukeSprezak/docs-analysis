@@ -18,8 +18,8 @@ class AskQuestionUseCase:
         self.top_k = top_k
 
     async def execute(self, question_text: str, owner_id: str) -> Answer:
-        # Pobierz szerszy zbiór kandydatów, a potem przesortuj do najlepszych top_k.
-        # Retrieval ograniczony do dokumentów pytającego (owner_id).
+        # Fetch a wider candidate set, then reorder it down to the best top_k.
+        # Retrieval is limited to the asker's own documents (owner_id).
         candidates = await self.vector_repo.search(
             question_text, owner_id, top_k=self.candidate_count
         )

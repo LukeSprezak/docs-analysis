@@ -1,14 +1,14 @@
-"""Uruchamialny harness ewaluacji RAG (AI-9).
+"""Runnable RAG evaluation harness (AI-9).
 
-Metryki retrievalu liczą się zawsze (offline, deterministyczne). Metryki generacji
-(LLM-as-judge) dokładają się tylko, gdy ustawiono ``EVAL_JUDGE_PROVIDER=llm``.
+Retrieval metrics are always computed (offline, deterministic). Generation metrics
+(LLM-as-judge) are added only when ``EVAL_JUDGE_PROVIDER=llm`` is set.
 
-Uwaga: realny przebieg liczy jakość na PRAWDZIWYCH embeddingach/LLM — wymaga
-skonfigurowanego providera i wgranych dokumentów dla danego ``owner_id``. To narzędzie
-do uruchamiania na żądanie / w nightly, nie bezsieciowy test jednostkowy (metryki same
-w sobie są testowane offline w `tests/`).
+Note: a real run measures quality against REAL embeddings/LLM — it needs a configured
+provider and documents uploaded for the given ``owner_id``. This is a tool to run on demand
+or nightly, not an offline unit test (the metrics themselves are tested offline in
+`tests/`).
 
-Przykład:
+Example:
     uv run python -m app.knowledge_management.application.evaluation.run_evaluation \\
         --dataset eval/golden_set.json --owner-id <user_id>
 """
@@ -31,7 +31,7 @@ async def build_report(
     retrieval_evaluator: RetrievalEvaluator,
     generation_evaluator: GenerationEvaluator | None = None,
 ) -> EvaluationReport:
-    """Składa pełny raport. Sekcja generacji pojawia się tylko, gdy podano evaluator."""
+    """Assembles the full report. The generation section appears only when an evaluator is given."""
     retrieval, retrieval_details = await retrieval_evaluator.evaluate(examples, owner_id)
     report = EvaluationReport(retrieval=retrieval, retrieval_details=retrieval_details)
     if generation_evaluator is not None:
@@ -42,7 +42,7 @@ async def build_report(
 
 
 def format_report(report: EvaluationReport) -> str:
-    """Czytelne podsumowanie raportu do konsoli."""
+    """A human-readable summary of the report for the console."""
     retrieval = report.retrieval
     lines = [
         f"Evaluation over {retrieval.example_count} questions",
@@ -65,21 +65,21 @@ def format_report(report: EvaluationReport) -> str:
 
 
 def _parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Eval harness RAG (AI-9).")
+    parser = argparse.ArgumentParser(description="RAG eval harness (AI-9).")
     parser.add_argument(
-        "--dataset", help="Ścieżka do golden setu JSON (domyślnie z EVAL_DATASET_PATH)."
+        "--dataset", help="Path to the JSON golden set (defaults to EVAL_DATASET_PATH)."
     )
     parser.add_argument(
         "--owner-id",
         required=True,
-        help="Właściciel dokumentów, na których liczymy retrieval (izolacja per user).",
+        help="Owner of the documents retrieval is measured on (per-user isolation).",
     )
-    parser.add_argument("--json", dest="json_output", help="Zapisz pełny raport do pliku JSON.")
+    parser.add_argument("--json", dest="json_output", help="Write the full report to a JSON file.")
     return parser.parse_args(argv)
 
 
 async def main(argv: Sequence[str] | None = None) -> None:
-    # Importy ciężkich zależności w środku — sam moduł importuje się bez nich (np. w testach).
+    # Heavy dependencies are imported inside — the module itself imports without them (e.g. in tests).
     from app.knowledge_management.infrastructure.llm.answer_judge_factory import (
         AnswerJudgeFactory,
     )
@@ -117,7 +117,7 @@ async def main(argv: Sequence[str] | None = None) -> None:
     print(format_report(report))
 
     if arguments.json_output:
-        # Zapis pliku to blokujące I/O — w wątku, żeby nie blokować event loopu (ASYNC230).
+        # Writing the file is blocking I/O — run it in a thread so the event loop stays free (ASYNC230).
         await asyncio.to_thread(_write_json_report, arguments.json_output, report)
 
 

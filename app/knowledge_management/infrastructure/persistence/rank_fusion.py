@@ -1,15 +1,15 @@
-"""Reciprocal Rank Fusion (RRF) — łączenie kilku rankingów w jeden.
+"""Reciprocal Rank Fusion (RRF) — combining several rankings into one.
 
-Czyste, deterministyczne i bezsieciowe (testowalne offline). Używane przez hybrid search
-do złączenia wyników wyszukiwania wektorowego i pełnotekstowego (BM25/FTS).
+Pure, deterministic and network-free (testable offline). Used by hybrid search to merge the
+results of vector and full-text search (BM25/FTS).
 """
 
 from collections.abc import Callable, Sequence
 
 from ...domain.models import Document
 
-# Stała wygładzająca z oryginalnej pracy o RRF. Tłumi wpływ wysokich pozycji, dzięki
-# czemu dokument trafny w obu rankingach bije dokument świetny tylko w jednym.
+# The smoothing constant from the original RRF paper. It dampens the weight of top
+# positions, so a document relevant in both rankings beats one that is great in only one.
 DEFAULT_RRF_SMOOTHING_CONSTANT = 60
 
 
@@ -17,11 +17,11 @@ def reciprocal_rank_fusion(
     rankings: Sequence[Sequence[str]],
     smoothing_constant: int = DEFAULT_RRF_SMOOTHING_CONSTANT,
 ) -> list[str]:
-    """Łączy rankingi (listy kluczy w kolejności trafności) w jeden ranking kluczy.
+    """Merges rankings (lists of keys ordered by relevance) into a single ranking of keys.
 
-    Wynik RRF każdego klucza to suma 1/(smoothing_constant + pozycja) po wszystkich
-    rankingach, w których wystąpił. Pozycje liczone od 0. Zwraca klucze posortowane
-    malejąco po wyniku; remisy zachowują kolejność pierwszego wystąpienia (stabilnie).
+    Each key's RRF score is the sum of 1/(smoothing_constant + position) across every
+    ranking it appears in. Positions are 0-based. Returns the keys sorted by descending
+    score; ties keep the order of first appearance (a stable sort).
     """
     scores: dict[str, float] = {}
     for ranking in rankings:
@@ -36,10 +36,10 @@ def fuse_documents(
     key_of: Callable[[Document], str],
     smoothing_constant: int = DEFAULT_RRF_SMOOTHING_CONSTANT,
 ) -> list[Document]:
-    """Łączy kilka list dokumentów przez RRF i zwraca najlepsze ``top_k`` (zdeduplikowane).
+    """Merges several document lists via RRF and returns the best ``top_k`` (deduplicated).
 
-    ``key_of`` wyznacza tożsamość dokumentu między listami (np. id fragmentu), żeby ten sam
-    fragment z dwóch rankingów zliczył się jako jeden, a nie zdublował.
+    ``key_of`` establishes document identity across the lists (e.g. the chunk id), so the
+    same chunk appearing in two rankings counts once instead of being duplicated.
     """
     documents_by_key: dict[str, Document] = {}
     rankings: list[list[str]] = []

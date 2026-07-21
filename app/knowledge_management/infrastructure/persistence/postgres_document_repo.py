@@ -8,8 +8,8 @@ from ...domain.repositories import DocumentRepo
 
 
 class PostgresDocumentRepo(BasePostgresRepo, DocumentRepo):
-    # Schema zarządzana przez Alembic (migrations/); połączenia ze współdzielonej puli
-    # async przez BasePostgresRepo (nie `psycopg.connect` per-wywołanie).
+    # Schema managed by Alembic (migrations/); connections come from the shared async pool
+    # via BasePostgresRepo (not a per-call `psycopg.connect`).
 
     async def save(self, document: Document, owner_id: str) -> None:
         await self._execute_statement(

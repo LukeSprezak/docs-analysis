@@ -8,9 +8,9 @@ from ...domain.repositories import DocumentRepo, VectorStoreRepo
 
 
 def _remove_file_if_within_storage(file_path: str) -> None:
-    # Usuwamy tylko pliki wewnątrz katalogu storage — chroni przed skasowaniem dowolnego
-    # pliku przez spreparowane metadane (legacy). Synchroniczne I/O — wołane w wątku,
-    # żeby nie blokować event loopu (ASYNC240).
+    # Only delete files inside the storage directory — protects against removing an arbitrary
+    # file via crafted metadata (legacy). Synchronous I/O — called in a thread so it does not
+    # block the event loop (ASYNC240).
     if is_within_storage(file_path) and os.path.exists(file_path):
         os.remove(file_path)
 
@@ -21,8 +21,8 @@ class DeleteDocumentUseCase:
         self.vector_repo = vector_repo
 
     async def execute(self, doc_id: str, owner_id: str) -> None:
-        # get_by_id jest filtrowane po owner_id — cudzego dokumentu nie znajdziemy,
-        # więc ani pliku, ani wektorów nie ruszymy.
+        # get_by_id is filtered by owner_id — someone else's document is never found, so we
+        # touch neither the file nor the vectors.
         doc = await self.doc_repo.get_by_id(doc_id, owner_id)
         if doc is None:
             return

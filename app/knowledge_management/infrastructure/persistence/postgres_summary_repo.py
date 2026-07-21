@@ -8,8 +8,8 @@ from ...domain.repositories import SummaryRepo
 
 
 class PostgresSummaryRepo(BasePostgresRepo, SummaryRepo):
-    # Schema zarządzana przez Alembic (migrations/); połączenia ze współdzielonej puli
-    # async przez BasePostgresRepo (nie `psycopg.connect` per-wywołanie).
+    # Schema managed by Alembic (migrations/); connections come from the shared async pool
+    # via BasePostgresRepo (not a per-call `psycopg.connect`).
 
     async def save(self, summary: Summary, owner_id: str) -> str:
         row = await self._fetch_one_row(
@@ -22,7 +22,7 @@ class PostgresSummaryRepo(BasePostgresRepo, SummaryRepo):
             },
         )
         if row is None:
-            raise RuntimeError("INSERT ... RETURNING nie zwrócił wiersza")
+            raise RuntimeError("INSERT ... RETURNING returned no row")
         summary_id = str(row[0])
         summary.id = summary_id
         summary.created_at = row[1].isoformat()

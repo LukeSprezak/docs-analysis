@@ -36,9 +36,9 @@ class ChatWithDocsUseCase:
         history: list[dict[str, Any]] | None,
         conversation_id: str | None,
     ) -> tuple[Conversation, list[dict[str, str]], list[Document]]:
-        """Wczytuje konwersację, buduje historię, przeformułowuje pytanie i wyszukuje.
+        """Loads the conversation, builds the history, rephrases the question and searches.
 
-        Wspólny krok dla wariantu zwykłego i strumieniowego.
+        The step shared by the plain and the streaming variant.
         """
         conversation = (
             await self.conversation_repo.get_by_id(conversation_id, owner_id)
@@ -57,8 +57,8 @@ class ChatWithDocsUseCase:
                 if "role" in item and "content" in item
             ]
 
-        # Pytanie zależne od kontekstu ("a co z tym?") → samodzielne, inaczej retrieval
-        # szuka po bezsensownej frazie.
+        # A context-dependent question ("and what about that?") becomes standalone, otherwise
+        # retrieval searches for a meaningless phrase.
         search_query = (
             await self.rag_service.condense_question(message, prior_messages)
             if prior_messages
@@ -105,10 +105,10 @@ class ChatWithDocsUseCase:
         history: list[dict[str, Any]] | None = None,
         conversation_id: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
-        """Strumieniuje zdarzenia: kolejno {"type":"token",...}, na końcu {"type":"done",...}.
+        """Streams events: {"type":"token",...} one after another, then {"type":"done",...}.
 
-        Repo/condense/retrieval są async (pula połączeń + ainvoke), a sama odpowiedź jest
-        strumieniowana token po tokenie z LLM-a — nic nie blokuje event loopu.
+        Repo/condense/retrieval are async (connection pool + ainvoke), and the answer itself
+        is streamed token by token from the LLM — nothing blocks the event loop.
         """
         conversation, prior_messages, relevant_documents = await self._prepare_context(
             message, owner_id, history, conversation_id

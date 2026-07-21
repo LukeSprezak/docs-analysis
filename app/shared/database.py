@@ -1,11 +1,11 @@
-"""Współdzielony asynchroniczny silnik bazy + pula połączeń (SQLAlchemy + psycopg3).
+"""Shared async database engine + connection pool (SQLAlchemy + psycopg3).
 
-Zastępuje wzorzec „połączenie per-wywołanie" (`psycopg.connect(...)` w każdej metodzie
-repo) jedną pulą na proces. Repozytoria pobierają połączenie z puli przez `db_connection()`,
-zamiast otwierać i zamykać TCP/uwierzytelnianie przy każdym zapytaniu.
+Replaces the "connection per call" pattern (`psycopg.connect(...)` in every repo method)
+with a single pool per process. Repositories take a connection from the pool via
+`db_connection()` instead of opening and closing TCP/authentication on every query.
 
-Silnik jest asynchroniczny (`postgresql+psycopg://` → psycopg3 async), więc zapytania
-do bazy nie blokują event loopu FastAPI.
+The engine is asynchronous (`postgresql+psycopg://` → psycopg3 async), so database queries
+do not block the FastAPI event loop.
 """
 
 from collections.abc import AsyncIterator
@@ -19,11 +19,11 @@ _engine: AsyncEngine | None = None
 
 
 def get_engine() -> AsyncEngine:
-    """Leniwy singleton asynchronicznego silnika z pulą połączeń.
+    """Lazy singleton of the async engine with its connection pool.
 
-    `pool_pre_ping` odrzuca martwe połączenia (np. po restarcie bazy) zamiast oddawać je
-    z puli; `pool_recycle` zamyka połączenia starsze niż 30 min (ochrona przed zerwaniem
-    idle przez serwer/proxy).
+    `pool_pre_ping` discards dead connections (e.g. after a database restart) instead of
+    handing them out of the pool; `pool_recycle` closes connections older than 30 min
+    (protection against idle connections being dropped by the server/proxy).
     """
     global _engine
     if _engine is None:
@@ -39,10 +39,10 @@ def get_engine() -> AsyncEngine:
 
 @asynccontextmanager
 async def db_connection() -> AsyncIterator[AsyncConnection]:
-    """Połączenie z puli w transakcji — commit na wyjściu, rollback przy wyjątku.
+    """A pooled connection inside a transaction — commit on exit, rollback on exception.
 
-    `engine.begin()` otwiera transakcję i zatwierdza ją po czystym wyjściu z bloku
-    (a wycofuje przy wyjątku), więc repozytoria nie muszą ręcznie wołać commit/rollback.
+    `engine.begin()` opens a transaction and commits it when the block exits cleanly (and
+    rolls back on an exception), so repositories never call commit/rollback by hand.
     """
     engine = get_engine()
     async with engine.begin() as connection:
@@ -50,7 +50,7 @@ async def db_connection() -> AsyncIterator[AsyncConnection]:
 
 
 async def dispose_engine() -> None:
-    """Zamyka pulę (wywoływane w lifespanie FastAPI przy zamykaniu aplikacji)."""
+    """Closes the pool (called from the FastAPI lifespan on application shutdown)."""
     global _engine
     if _engine is not None:
         await _engine.dispose()

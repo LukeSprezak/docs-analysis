@@ -14,17 +14,17 @@ class VectorStoreProvider(StrEnum):
 
 
 class RerankerProvider(StrEnum):
-    NONE = "none"  # bez rerankingu — zwraca top_k z vector search (NoOpReranker)
-    LLM = "llm"  # reranking listwise przez skonfigurowany LLM
-    COHERE = "cohere"  # cross-encoder przez Cohere Rerank API
-    BGE = "bge"  # lokalny cross-encoder (sentence-transformers, offline, bez API)
+    NONE = "none"  # no reranking — returns top_k straight from vector search (NoOpReranker)
+    LLM = "llm"  # listwise reranking by the configured LLM
+    COHERE = "cohere"  # cross-encoder via the Cohere Rerank API
+    BGE = "bge"  # local cross-encoder (sentence-transformers, offline, no API)
 
 
 class EvalJudgeProvider(StrEnum):
-    NONE = "none"  # metryki generacji wyłączone (eval liczy tylko retrieval, bez LLM)
-    LLM = "llm"  # faithfulness/answer-relevance oceniane przez skonfigurowany LLM
+    NONE = "none"  # generation metrics disabled (eval computes retrieval only, no LLM)
+    LLM = "llm"  # faithfulness/answer-relevance scored by the configured LLM
 
 
 class SearchStrategy(StrEnum):
-    VECTOR = "vector"  # tylko podobieństwo wektorowe (domyślnie)
-    HYBRID = "hybrid"  # wektory + słowa kluczowe (Postgres FTS), łączone RRF
+    VECTOR = "vector"  # vector similarity only (the default)
+    HYBRID = "hybrid"  # vectors + keywords (Postgres FTS), combined with RRF

@@ -8,23 +8,23 @@ from ..text.text_chunker import TextChunker
 
 
 class FaissVectorStoreRepo(VectorStoreRepo):
-    """Magazyn wektorowy w pamięci oparty o FAISS (do lokalnego dev/testów bez Postgresa).
+    """In-memory vector store backed by FAISS (for local dev/tests without Postgres).
 
-    Tak jak wariant Postgresowy: fragmentuje dokumenty przed embedowaniem i zwraca
-    prawdziwe id dokumentu nadrzędnego z metadanych fragmentu. Stan trzymany jest w
-    pamięci procesu — znika po restarcie.
+    Like the Postgres variant: it chunks documents before embedding and returns the real
+    parent document id from the chunk metadata. State is held in process memory — it is
+    gone after a restart.
     """
 
     def __init__(self, embeddings: Embeddings, chunker: TextChunker | None = None) -> None:
         self._embeddings = embeddings
         self._chunker = chunker or TextChunker()
         self._vector_store: FAISS | None = None
-        # Mapowanie id dokumentu (filename) -> lista id jego fragmentów, do usuwania.
+        # Maps document id (filename) -> list of its chunk ids, used for deletion.
         self._chunk_ids_by_document_id: dict[str, list[str]] = {}
 
     async def add_documents(self, documents: list[Document], owner_id: str) -> None:
-        # Stempel właściciela na każdym dokumencie przed chunkingiem (fragmenty
-        # dziedziczą metadane → owner_id w każdym wektorze, do filtra retrievalu).
+        # Stamp the owner onto every document before chunking (chunks inherit the metadata
+        # → owner_id lands on every vector, for the retrieval filter).
         owned_documents = [
             Document(
                 id=document.id,
@@ -34,8 +34,8 @@ class FaissVectorStoreRepo(VectorStoreRepo):
             for document in documents
         ]
 
-        # Re-upload: usuń istniejące fragmenty tych dokumentów przed dodaniem nowych,
-        # żeby nie zostawały osierocone (gdy nowa wersja ma mniej fragmentów).
+        # Re-upload: drop the existing chunks of these documents before adding new ones, so
+        # none are orphaned (when the new version has fewer chunks).
         for existing_document_id in {document.id for document in owned_documents}:
             await self.delete_by_document_id(existing_document_id, owner_id)
 
@@ -57,7 +57,7 @@ class FaissVectorStoreRepo(VectorStoreRepo):
             self._vector_store.add_documents(langchain_documents, ids=chunk_ids)
 
         for chunk in chunks:
-            # doc_id jest namespace'owany per user (id dokumentu nadrzędnego) → unikalny.
+            # doc_id is namespaced per user (the parent document id) → unique.
             document_id = chunk.metadata.get("doc_id") or chunk.metadata.get("filename")
             if document_id is not None:
                 self._chunk_ids_by_document_id.setdefault(document_id, []).append(chunk.id)
@@ -66,8 +66,8 @@ class FaissVectorStoreRepo(VectorStoreRepo):
         if self._vector_store is None:
             return []
 
-        # Filtr po metadanych ogranicza wyniki do fragmentów pytającego. fetch_k > k,
-        # bo filtr odsiewa po pobraniu — inaczej zwrócilibyśmy za mało wyników.
+        # The metadata filter limits results to the asker's own chunks. fetch_k > k because
+        # the filter is applied after fetching — otherwise we would return too few results.
         results = self._vector_store.similarity_search(
             query,
             k=top_k,
@@ -89,7 +89,7 @@ class FaissVectorStoreRepo(VectorStoreRepo):
         if self._vector_store is None:
             return
 
-        # doc_id jest namespace'owany per user, więc sam w sobie wystarcza do izolacji.
+        # doc_id is namespaced per user, so on its own it is enough for isolation.
         chunk_ids = self._chunk_ids_by_document_id.pop(doc_id, [])
         if chunk_ids:
             self._vector_store.delete(chunk_ids)

@@ -11,9 +11,9 @@ logger = logging.getLogger("app.exception_handler")
 
 
 async def app_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Handler dla własnego AppException. Typ `exc` to `Exception` (sygnatura wymagana przez
-    Starlette `add_exception_handler`), ale handler jest rejestrowany wyłącznie dla
-    AppException, więc bezpiecznie zawężamy typ przez `cast`."""
+    """Handler for our own AppException. `exc` is typed `Exception` (the signature Starlette
+    `add_exception_handler` requires), but the handler is registered for AppException only,
+    so narrowing the type with `cast` is safe."""
     exc = cast(AppException, exc)
     logger.error(
         f"AppException: {exc.message} "
@@ -37,10 +37,10 @@ async def app_exception_handler(request: Request, exc: Exception) -> JSONRespons
 
 
 async def rate_limit_exceeded_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Handler dla przekroczenia limitu zapytań (slowapi `RateLimitExceeded`). Zwraca 429
-    w spójnym formacie błędu API, bez ujawniania szczegółów konfiguracji limitów. Typ `exc`
-    to `Exception` (sygnatura wymagana przez Starlette `add_exception_handler`); szczegół
-    limitu wyciągamy bezpiecznie przez getattr."""
+    """Handler for an exceeded request limit (slowapi `RateLimitExceeded`). Returns 429 in the
+    consistent API error format, without revealing the limit configuration. `exc` is typed
+    `Exception` (the signature Starlette `add_exception_handler` requires); the limit detail
+    is read defensively with getattr."""
     detail = getattr(exc, "detail", "rate limit exceeded")
     logger.warning(f"Rate limit exceeded: {detail}", extra={"request_id": get_request_id()})
 

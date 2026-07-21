@@ -4,11 +4,11 @@ from ...domain.models import Document
 
 
 class TextChunker:
-    """Dzieli dokumenty na mniejsze fragmenty pod retrieval.
+    """Splits documents into smaller chunks for retrieval.
 
-    Każdy fragment dziedziczy metadane dokumentu źródłowego i dostaje
-    dodatkowo ``doc_id`` (id dokumentu nadrzędnego) oraz ``chunk_index``,
-    dzięki czemu można je później zidentyfikować i zacytować.
+    Every chunk inherits the metadata of its source document and additionally receives
+    ``doc_id`` (the parent document id) and ``chunk_index``, so it can later be identified
+    and cited.
     """
 
     def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 150) -> None:
@@ -20,11 +20,11 @@ class TextChunker:
         )
 
     def chunk_many(self, documents: list[Document]) -> list[Document]:
-        """Dzieli listę dokumentów na fragmenty z globalnie unikalnymi id.
+        """Splits a list of documents into chunks with globally unique ids.
 
-        ``documents`` to zwykle strony jednego pliku (albo pojedynczy
-        dokument dla plików tekstowych). Indeks fragmentu jest wspólny dla
-        całego pliku, więc id ``"{doc_id}::{n}"`` nie kolidują między stronami.
+        ``documents`` is usually the pages of a single file (or one document for text
+        files). The chunk index is shared across the whole file, so ``"{doc_id}::{n}"`` ids
+        never collide between pages.
         """
         chunks: list[Document] = []
         counter = 0

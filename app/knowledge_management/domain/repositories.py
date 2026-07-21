@@ -48,8 +48,8 @@ class RAGService(ABC):
 
     @abstractmethod
     async def condense_question(self, question: str, history: list[dict[str, str]]) -> str:
-        """Przeformułowuje pytanie zależne od kontekstu rozmowy na samodzielne
-        (do retrievalu). Np. 'a co z tym?' → 'jaka jest złożoność quicksort?'."""
+        """Rephrases a question that depends on conversation context into a standalone one
+        (for retrieval). E.g. 'and what about that?' → 'what is quicksort's complexity?'."""
         pass
 
     @abstractmethod
@@ -59,33 +59,33 @@ class RAGService(ABC):
         context: list[Document],
         history: list[dict[str, str]] | None = None,
     ) -> AsyncIterator[str]:
-        """Strumieniuje odpowiedź token po tokenie (do UX czatu na żywo)."""
+        """Streams the answer token by token (for live chat UX)."""
         ...
 
 
 class RerankerService(ABC):
     @abstractmethod
     async def rerank(self, query: str, documents: list[Document], top_k: int = 4) -> list[Document]:
-        """Sortuje kandydatów wg trafności do zapytania i zwraca najlepsze top_k."""
+        """Orders candidates by relevance to the query and returns the best top_k."""
         pass
 
 
 class AnswerJudge(ABC):
-    """Sędzia jakości odpowiedzi (LLM-as-judge) na potrzeby ewaluacji RAG.
+    """Answer quality judge (LLM-as-judge) used by the RAG evaluation.
 
-    Metryki w stylu RAGAS, ale liczone własnym sędzią (bez ciężkiej zależności
-    `ragas`). Implementacja jest opcjonalna i włączana flagą — patrz factory.
+    RAGAS-style metrics, but computed with our own judge (without the heavy `ragas`
+    dependency). The implementation is optional and enabled by a flag — see the factory.
     """
 
     @abstractmethod
     async def score_faithfulness(self, answer: str, context: list[Document]) -> float:
-        """Na ile odpowiedź jest ugruntowana w dostarczonym kontekście (0.0-1.0).
-        Niska wartość = halucynacja / treść spoza kontekstu."""
+        """How well the answer is grounded in the supplied context (0.0-1.0).
+        A low value means hallucination / content from outside the context."""
         pass
 
     @abstractmethod
     async def score_answer_relevance(self, question: str, answer: str) -> float:
-        """Na ile odpowiedź faktycznie adresuje zadane pytanie (0.0-1.0)."""
+        """How well the answer actually addresses the question asked (0.0-1.0)."""
         pass
 
 

@@ -10,8 +10,8 @@ from app.shared.enums import LLMProvider
 
 
 def _as_secret(api_key: str | None) -> SecretStr | None:
-    """Klucz API jako SecretStr (typ oczekiwany przez klientów LangChain). None → None,
-    żeby biblioteka mogła sięgnąć po klucz ze zmiennej środowiskowej."""
+    """The API key as SecretStr (the type LangChain clients expect). None → None, so the
+    library can fall back to reading the key from an environment variable."""
     return SecretStr(api_key) if api_key else None
 
 
@@ -27,10 +27,10 @@ class LLMFactory:
                     model=settings.LLM_MODEL or "gpt-4o-mini",
                 )
             case LLMProvider.ANTHROPIC:
-                # langchain_anthropic typuje api_key jako wymagany SecretStr oraz timeout/stop
-                # jako wymagane — w runtime mają defaulty (None), a brak klucza jest czytany ze
-                # zmiennej środowiskowej. timeout/stop=None == default; ignore tylko na granicy
-                # niepoprawnego typu api_key (Optional w runtime, nie-Optional w stubie).
+                # langchain_anthropic types api_key as a required SecretStr and timeout/stop as
+                # required — at runtime they default to None, and a missing key is read from an
+                # environment variable. timeout/stop=None == default; the ignore covers only the
+                # incorrect api_key type (Optional at runtime, non-Optional in the stub).
                 return ChatAnthropic(
                     api_key=_as_secret(settings.ANTHROPIC_API_KEY),  # type: ignore[arg-type]
                     model_name=settings.LLM_MODEL or "claude-3-5-sonnet-20240620",

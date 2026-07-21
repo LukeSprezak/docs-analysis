@@ -4,8 +4,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from ...domain.models import Document
 from ...domain.repositories import SummarizerService
 
-# Znaczniki delimitujące treść dokumentów (spotlighting) — ta sama mitygacja prompt
-# injection co w RAG: treść użytkownika to dane, nie polecenia.
+# Delimiters around the document content (spotlighting) — the same prompt-injection
+# mitigation as in RAG: user content is data, not commands.
 DOCUMENT_START_DELIMITER = "<document_context>"
 DOCUMENT_END_DELIMITER = "</document_context>"
 
@@ -26,7 +26,7 @@ class LangChainSummarizer(SummarizerService):
 
     @staticmethod
     def _format_documents(documents: list[Document]) -> str:
-        # Usuwamy znaczniki z treści, by zatruty dokument nie mógł "zamknąć" bloku danych.
+        # Strip the delimiters from the content so a poisoned document cannot "close" the data block.
         cleaned = [
             document.content.replace(DOCUMENT_START_DELIMITER, "").replace(
                 DOCUMENT_END_DELIMITER, ""

@@ -36,7 +36,7 @@ def test_chat_stream_endpoint_emits_ndjson_tokens_then_done():
     assert events[-1]["type"] == "done"
     assert events[-1]["conversation_id"] == "c1"
     # The sources are formatted using format_sources (title + page)
-    assert events[-1]["sources"] == ["doc1.pdf (str. 2)"]
+    assert events[-1]["sources"] == ["doc1.pdf (page 2)"]
 
     app.dependency_overrides.clear()
 

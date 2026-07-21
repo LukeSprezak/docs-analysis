@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 def _chunk_key(document: Document) -> str:
-    """Tożsamość fragmentu między rankingami (vector vs keyword) na potrzeby fuzji RRF.
+    """Chunk identity across rankings (vector vs keyword) for the RRF fusion.
 
-    Odtwarza id fragmentu z metadanych (``"{doc_id}::{chunk_index}"``), żeby ten sam
-    fragment trafiony oboma metodami zliczył się jako jeden, a nie zdublował.
+    Rebuilds the chunk id from the metadata (``"{doc_id}::{chunk_index}"``) so the same
+    chunk found by both methods counts once instead of being duplicated.
     """
     return f"{document.metadata.get('doc_id')}::{document.metadata.get('chunk_index')}"
 
@@ -39,9 +39,9 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         self.chunker = chunker or TextChunker()
         self.enable_hybrid_search = enable_hybrid_search
 
-        # Współdzielony async engine (ta sama pula co reszta repo). async_mode=True →
-        # używamy metod a* (aadd_documents/asimilarity_search/adelete), bez blokowania
-        # event loopu. Rozszerzenie 'vector' tworzy migracja Alembic, więc create_extension=False.
+        # Shared async engine (the same pool as the other repos). async_mode=True → we use the
+        # a* methods (aadd_documents/asimilarity_search/adelete) without blocking the event
+        # loop. The 'vector' extension is created by an Alembic migration, so create_extension=False.
         self.vector_store = PGVector(
             connection=get_engine(),
             embeddings=self.embeddings,
@@ -52,9 +52,8 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         )
 
     async def add_documents(self, documents: list[Document], owner_id: str) -> None:
-        # Stempel właściciela na każdym dokumencie PRZED chunkingiem — fragmenty
-        # dziedziczą metadane, więc owner_id trafia do każdego wektora i pozwala
-        # filtrować retrieval per użytkownik.
+        # Stamp the owner onto every document BEFORE chunking — chunks inherit the metadata,
+        # so owner_id lands on every vector and lets retrieval be filtered per user.
         owned_documents = [
             Document(
                 id=document.id,
@@ -64,15 +63,14 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
             for document in documents
         ]
 
-        # Re-upload: usuń istniejące fragmenty tych dokumentów PRZED wstawieniem nowych.
-        # Bez tego, gdy nowa wersja ma mniej fragmentów, stare z wyższymi indeksami
-        # zostają osierocone w bazie i zanieczyszczają retrieval.
+        # Re-upload: delete the existing chunks of these documents BEFORE inserting new ones.
+        # Without this, when the new version has fewer chunks, the old ones with higher
+        # indices are orphaned in the database and pollute retrieval.
         for document_id in {document.id for document in owned_documents}:
             await self.delete_by_document_id(document_id, owner_id)
 
-        # Dokumenty są dzielone na fragmenty PRZED embedowaniem. Bez tego
-        # cały plik trafiałby do bazy jako jeden wektor i retrieval był
-        # bezużyteczny.
+        # Documents are split into chunks BEFORE embedding. Without this the whole file would
+        # land in the database as a single vector and retrieval would be useless.
         chunks = self.chunker.chunk_many(owned_documents)
         if not chunks:
             return
@@ -90,14 +88,14 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         return await self._vector_search(query, owner_id, top_k)
 
     async def _vector_search(self, query: str, owner_id: str, top_k: int) -> list[Document]:
-        # Filtr po metadanych: zwracamy tylko fragmenty należące do pytającego.
+        # Metadata filter: return only the chunks belonging to the asker.
         results = await self.vector_store.asimilarity_search(
             query, k=top_k, filter={"owner_id": {"$eq": owner_id}}
         )
         return [
             Document(
-                # Prawdziwe id dokumentu nadrzędnego z metadanych fragmentu
-                # (PGVector nie wystawia .id na wyniku → wcześniej leciało "unknown").
+                # The real parent document id from the chunk metadata (PGVector does not
+                # expose .id on the result → this used to come out as "unknown").
                 id=str(res.metadata.get("doc_id") or res.metadata.get("filename") or "unknown"),
                 content=res.page_content,
                 metadata=res.metadata,
@@ -106,22 +104,22 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         ]
 
     async def _hybrid_search(self, query: str, owner_id: str, top_k: int) -> list[Document]:
-        """Łączy wyszukiwanie wektorowe i pełnotekstowe (Postgres FTS) przez RRF.
+        """Combines vector and full-text search (Postgres FTS) via RRF.
 
-        Każda metoda pobiera ``top_k`` kandydatów, a fuzja zwraca ``top_k`` najlepszych po
-        złączeniu — fragment trafny w obu rankingach awansuje. Pełnotekstowe daje to, czego
-        wektory gubią: dopasowanie po słowach kluczowych, nazwach własnych, terminach.
+        Each method fetches ``top_k`` candidates and the fusion returns the best ``top_k``
+        after merging — a chunk relevant in both rankings is promoted. Full-text search adds
+        what vectors miss: matching on keywords, proper nouns and specific terms.
         """
         vector_documents = await self._vector_search(query, owner_id, top_k)
         keyword_documents = await self._keyword_search(query, owner_id, top_k)
         return fuse_documents([vector_documents, keyword_documents], top_k=top_k, key_of=_chunk_key)
 
     async def _keyword_search(self, query: str, owner_id: str, top_k: int) -> list[Document]:
-        """Pełnotekstowe wyszukiwanie po treści fragmentów (Postgres FTS, ranking ts_rank).
+        """Full-text search over chunk content (Postgres FTS, ranked with ts_rank).
 
-        Konfiguracja 'simple' (bez stemmera zależnego od języka) → przenośne i sensowne dla
-        polskich dokumentów. Uwaga produkcyjna: przy dużej bazie dołożyć indeks GIN na
-        ``to_tsvector('simple', document)`` (zadanie Alembic) — tu liczone w locie.
+        The 'simple' configuration (no language-dependent stemmer) is portable and works
+        sensibly for Polish documents. Production note: on a large database add a GIN index on
+        ``to_tsvector('simple', document)`` (an Alembic task) — here it is computed on the fly.
         """
         async with db_connection() as connection:
             collection_uuid = await self._collection_uuid(connection)
@@ -167,27 +165,26 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         return row[0] if row else None
 
     async def delete_by_document_id(self, doc_id: str, owner_id: str) -> None:
-        # Próba usunięcia przez LangChain (zadziała tylko, gdy id fragmentu == doc_id —
-        # rzadkie, bo fragmenty mają id "{doc_id}::{index}"). Traktujemy ją jako best-effort:
-        # właściwe usuwanie robi DELETE po metadanych niżej. Błąd na poziomie bazy logujemy
-        # zamiast cicho połykać (wcześniej `suppress(Exception)` ukrywał wszystko).
+        # Attempt deletion through LangChain (only works when the chunk id == doc_id — rare,
+        # because chunks have ids like "{doc_id}::{index}"). Treat it as best effort: the real
+        # deletion is the metadata DELETE below. A database-level error is logged rather than
+        # silently swallowed (`suppress(Exception)` used to hide everything).
         try:
             await self.vector_store.adelete(ids=[doc_id])
         except SQLAlchemyError:
             logger.warning(
-                "LangChain adelete nie powiodło się dla doc_id=%s — "
-                "kontynuuję usuwaniem po metadanych",
+                "LangChain adelete failed for doc_id=%s — falling back to metadata deletion",
                 doc_id,
                 exc_info=True,
             )
 
-        # Dokładne usuwanie wszystkich fragmentów dokumentu przez metadane. Filtr po
-        # owner_id chroni przed skasowaniem cudzych wektorów przy kolizji nazw.
+        # Exact deletion of all the document's chunks via metadata. The owner_id filter
+        # protects against removing someone else's vectors on a name collision.
         async with db_connection() as connection:
             collection_uuid = await self._collection_uuid(connection)
             if collection_uuid is not None:
-                # Dopasowanie po id dokumentu nadrzędnego (namespace'owany per user)
-                # oraz dla pewności po owner_id.
+                # Match on the parent document id (namespaced per user) and, for safety,
+                # on owner_id as well.
                 await connection.execute(
                     text(
                         "DELETE FROM langchain_pg_embedding "

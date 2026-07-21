@@ -11,6 +11,8 @@ class AuthenticateUserUseCase:
     async def execute(self, email: str, password: str) -> User:
         normalized_email = email.strip().lower()
         user = await self.user_repo.get_by_email(normalized_email)
+        # The same message for an unknown user and a wrong password — we do not reveal
+        # whether a given email exists (protection against account enumeration).
         if user is None or not verify_password(password, user.hashed_password):
             raise AuthenticationException("Invalid email or password")
         return user

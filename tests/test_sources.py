@@ -6,7 +6,7 @@ def test_format_sources_uses_filename_and_page():
     docs = [
         Document(id="x", content="...", metadata={"filename": "raport.pdf", "page": 3}),
     ]
-    assert format_sources(docs) == ["raport.pdf (str. 3)"]
+    assert format_sources(docs) == ["raport.pdf (page 3)"]
 
 
 def test_format_sources_deduplicates_chunks_from_same_location():
@@ -15,7 +15,7 @@ def test_format_sources_deduplicates_chunks_from_same_location():
         Document(id="x", content="b", metadata={"filename": "raport.pdf", "page": 3}),
         Document(id="x", content="c", metadata={"filename": "raport.pdf", "page": 5}),
     ]
-    assert format_sources(docs) == ["raport.pdf (str. 3)", "raport.pdf (str. 5)"]
+    assert format_sources(docs) == ["raport.pdf (page 3)", "raport.pdf (page 5)"]
 
 
 def test_format_sources_without_page():

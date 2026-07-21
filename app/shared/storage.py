@@ -2,29 +2,29 @@ import os
 
 from app.shared.exceptions import ValidationException
 
-# Katalog na wgrane dokumenty. Liczony od cwd (aplikacja startuje z roota projektu),
-# zgodnie z dotychczasowym użyciem "storage/documents".
+# Directory for uploaded documents. Resolved from the cwd (the application starts from the
+# project root), matching the existing "storage/documents" usage.
 STORAGE_DOCUMENTS_DIR = os.path.abspath("storage/documents")
 
 
 def safe_document_path(filename: str, owner_id: str) -> str:
-    """Zwraca bezpieczną, absolutną ścieżkę pliku wewnątrz katalogu storage użytkownika.
+    """Returns a safe, absolute file path inside the user's storage directory.
 
-    Chroni przed path traversal: bierze samą nazwę pliku (`basename`), odrzuca
-    puste/`.`/`..` i upewnia się, że wynik nie wychodzi poza katalog storage.
-    Pliki każdego użytkownika trafiają do podkatalogu `owner_id`, więc dwóch userów
-    może wgrać plik o tej samej nazwie bez kolizji na dysku. Podnosi
-    ValidationException (400) dla niepoprawnych nazw.
+    Protects against path traversal: takes the bare file name (`basename`), rejects
+    empty/`.`/`..` and makes sure the result does not escape the storage directory.
+    Each user's files go into an `owner_id` subdirectory, so two users can upload a file
+    with the same name without colliding on disk. Raises ValidationException (400) for
+    invalid names.
     """
     raw = filename or ""
     name = os.path.basename(raw)
-    # Fail-closed: odrzucamy nazwy ze składnikami ścieżki zamiast je po cichu
-    # przycinać — jawny kontrakt zamiast niejawnego zmieniania nazwy pliku.
+    # Fail closed: reject names containing path components instead of silently trimming
+    # them — an explicit contract beats implicitly renaming the user's file.
     if not name or name in (".", "..") or name != raw or "/" in raw or "\\" in raw:
         raise ValidationException("Invalid filename")
 
-    # owner_id jest generowany po stronie serwera (UUID), ale defensywnie odrzucamy
-    # wszystko, co mogłoby wyjść z katalogu (separatory / "..").
+    # owner_id is generated server-side (UUID), but defensively reject anything that could
+    # escape the directory (separators / "..").
     if not owner_id or owner_id != os.path.basename(owner_id) or owner_id in (".", ".."):
         raise ValidationException("Invalid owner")
 
@@ -35,10 +35,10 @@ def safe_document_path(filename: str, owner_id: str) -> str:
 
 
 def is_within_storage(path: str) -> bool:
-    """Czy ścieżka leży wewnątrz katalogu storage (do bezpiecznego usuwania)."""
+    """Whether the path lies inside the storage directory (used for safe deletion)."""
     try:
         resolved = os.path.abspath(path)
         return os.path.commonpath([STORAGE_DOCUMENTS_DIR, resolved]) == STORAGE_DOCUMENTS_DIR
     except ValueError:
-        # commonpath rzuca przy ścieżkach na różnych dyskach (Windows) itp.
+        # commonpath raises for paths on different drives (Windows) and similar cases.
         return False

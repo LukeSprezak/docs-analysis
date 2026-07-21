@@ -6,6 +6,9 @@ from app.shared.postgres_repo import BasePostgresRepo
 
 
 class PostgresUserRepo(BasePostgresRepo, UserRepo):
+    # Schema managed by Alembic (migrations/); connections come from the shared async pool
+    # via BasePostgresRepo (not a per-call `psycopg.connect`).
+
     async def get_by_email(self, email: str) -> User | None:
         row = await self._fetch_one_row(
             "SELECT id, email, hashed_password, created_at FROM users WHERE email = :email",

@@ -3,11 +3,11 @@ from dataclasses import dataclass, field
 
 @dataclass
 class EvaluationExample:
-    """Jeden przykład referencyjny z golden setu (zbioru pytań kontrolnych).
+    """A single reference example from the golden set (the control question suite).
 
-    ``relevant_document_ids`` to identyfikatory dokumentów, które POWINNY trafić do
-    kontekstu dla danego pytania (zwykle nazwy plików). ``reference_answer`` jest
-    opcjonalna — wykorzystują ją wyłącznie metryki generacji (LLM-as-judge).
+    ``relevant_document_ids`` are the ids of documents that SHOULD end up in the context
+    for the given question (usually file names). ``reference_answer`` is optional — only
+    the generation metrics (LLM-as-judge) use it.
     """
 
     question: str
@@ -17,7 +17,7 @@ class EvaluationExample:
 
 @dataclass
 class RetrievalExampleResult:
-    """Wynik retrievalu dla pojedynczego pytania (do wglądu/diagnostyki)."""
+    """Retrieval result for a single question (for inspection/diagnostics)."""
 
     question: str
     retrieved_document_ids: list[str]
@@ -30,12 +30,12 @@ class RetrievalExampleResult:
 
 @dataclass
 class RetrievalMetrics:
-    """Metryki retrievalu zagregowane po całym golden secie.
+    """Retrieval metrics aggregated over the whole golden set.
 
-    - ``hit_rate`` — odsetek pytań, dla których w top_k znalazł się ≥1 trafny dokument.
-    - ``mean_reciprocal_rank`` — średnia z 1/(pozycja pierwszego trafienia).
-    - ``mean_precision_at_k`` — średni odsetek trafnych wśród zwróconych top_k.
-    - ``mean_recall_at_k`` — średni odsetek pokrytych trafnych dokumentów.
+    - ``hit_rate`` — share of questions where top_k contained >=1 relevant document.
+    - ``mean_reciprocal_rank`` — mean of 1/(position of the first hit).
+    - ``mean_precision_at_k`` — mean share of relevant documents among the returned top_k.
+    - ``mean_recall_at_k`` — mean share of relevant documents that were covered.
     """
 
     example_count: int
@@ -57,10 +57,10 @@ class GenerationExampleResult:
 
 @dataclass
 class GenerationMetrics:
-    """Metryki jakości generacji (LLM-as-judge) zagregowane po golden secie.
+    """Generation quality metrics (LLM-as-judge) aggregated over the golden set.
 
-    - ``mean_faithfulness`` — na ile odpowiedzi są ugruntowane w kontekście (0-1).
-    - ``mean_answer_relevance`` — na ile odpowiedzi adresują pytanie (0-1).
+    - ``mean_faithfulness`` — how well the answers are grounded in the context (0-1).
+    - ``mean_answer_relevance`` — how well the answers address the question (0-1).
     """
 
     example_count: int
@@ -70,8 +70,8 @@ class GenerationMetrics:
 
 @dataclass
 class EvaluationReport:
-    """Pełny raport ewaluacji. Sekcja generacji jest opcjonalna — pojawia się tylko,
-    gdy skonfigurowano sędziego (``EVAL_JUDGE_PROVIDER=llm``)."""
+    """The full evaluation report. The generation section is optional — it appears only when
+    a judge is configured (``EVAL_JUDGE_PROVIDER=llm``)."""
 
     retrieval: RetrievalMetrics
     retrieval_details: list[RetrievalExampleResult] = field(default_factory=list)

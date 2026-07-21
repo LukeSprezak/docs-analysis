@@ -54,11 +54,11 @@ def get_doc_repo() -> PostgresDocumentRepo:
 def get_vector_repo() -> VectorStoreRepo:
     global _vector_repo
     if _vector_repo is None:
-        # Jawny wybór magazynu wektorowego wg konfiguracji. Bez cichego fallbacku —
-        # gdyby coś nie wstało, błąd ma być widoczny, a nie udawać, że działa.
+        # Explicit choice of vector store from configuration. No silent fallback — if
+        # something fails to come up the error must be visible, not pretend to work.
         embeddings = EmbeddingsFactory.get_embeddings()
         if settings.VECTOR_STORE_PROVIDER == VectorStoreProvider.FAISS:
-            # Hybrid (Postgres FTS) nie dotyczy FAISS — magazyn w pamięci pozostaje wektorowy.
+            # Hybrid (Postgres FTS) does not apply to FAISS — the in-memory store stays vector-only.
             _vector_repo = FaissVectorStoreRepo(embeddings=embeddings)
         else:
             _vector_repo = PostgresVectorStoreRepo(

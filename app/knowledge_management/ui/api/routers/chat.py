@@ -78,7 +78,7 @@ async def chat_stream(
     use_case: Annotated[ChatWithDocsUseCase, Depends(get_chat_with_docs_use_case)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> StreamingResponse:
-    """Strumieniuje odpowiedź jako NDJSON: linie {"type":"token"...} i na końcu
+    """Streams the answer as NDJSON: {"type":"token"...} lines, then a final
     {"type":"done","conversation_id":...,"sources":[...]}."""
     history = [m.model_dump() for m in chat_request.history] if chat_request.history else None
     owner_id = current_user.id

@@ -19,7 +19,7 @@ od najbardziej do najmniej trafnego, np. [3, 0, 5]. Bez komentarza, bez markdown
 
 
 class NoOpReranker(RerankerService):
-    """Brak rerankingu — zwraca pierwsze top_k (kolejność z vector search)."""
+    """No reranking — returns the first top_k (the order from vector search)."""
 
     async def rerank(self, query: str, documents: list[Document], top_k: int = 4) -> list[Document]:
         return documents[:top_k]
@@ -34,7 +34,7 @@ class CohereRerankResponse(Protocol):
 
 
 class CohereRerankClient(Protocol):
-    """Minimalny kontrakt klienta Cohere potrzebny do rerankingu (ułatwia testy)."""
+    """The minimal Cohere client contract needed for reranking (keeps tests simple)."""
 
     def rerank(
         self,
@@ -47,10 +47,10 @@ class CohereRerankClient(Protocol):
 
 
 class CohereReranker(RerankerService):
-    """Reranking przez Cohere Rerank API (prawdziwy cross-encoder).
+    """Reranking via the Cohere Rerank API (a real cross-encoder).
 
-    Klient jest wstrzykiwany, dzięki czemu sama klasa nie importuje pakietu `cohere`
-    (zależność pozostaje opcjonalna) i jest łatwo testowalna bez sieci.
+    The client is injected, so the class itself never imports the `cohere` package (the
+    dependency stays optional) and is easy to test without network access.
     """
 
     def __init__(self, client: CohereRerankClient, model: str = "rerank-v3.5"):
@@ -61,8 +61,8 @@ class CohereReranker(RerankerService):
         if len(documents) <= 1:
             return documents[:top_k]
 
-        # Klient Cohere jest synchroniczny — wołanie sieciowe w wątku, żeby nie blokować
-        # event loopu.
+        # The Cohere client is synchronous — run the network call in a thread so the event
+        # loop stays free.
         response = await anyio.to_thread.run_sync(
             partial(
                 self._client.rerank,
@@ -76,16 +76,16 @@ class CohereReranker(RerankerService):
 
 
 class CrossEncoderScorer(Protocol):
-    """Kontrakt lokalnego cross-encodera (np. sentence-transformers CrossEncoder)."""
+    """Contract of a local cross-encoder (e.g. sentence-transformers CrossEncoder)."""
 
     def predict(self, sentence_pairs: list[tuple[str, str]]) -> Sequence[float]: ...
 
 
 class LocalCrossEncoderReranker(RerankerService):
-    """Reranking lokalnym cross-encoderem (offline, bez API).
+    """Reranking with a local cross-encoder (offline, no API).
 
-    Scorer jest wstrzykiwany, więc klasa nie importuje `sentence-transformers`
-    (ciężka zależność z torchem pozostaje opcjonalna) i jest testowalna bez modelu.
+    The scorer is injected, so the class never imports `sentence-transformers` (the heavy
+    torch dependency stays optional) and is testable without the model.
     """
 
     def __init__(self, scorer: CrossEncoderScorer):
@@ -96,7 +96,7 @@ class LocalCrossEncoderReranker(RerankerService):
             return documents[:top_k]
 
         pairs = [(query, document.content) for document in documents]
-        # Predykcja cross-encodera jest CPU-bound (torch) — w wątku, by nie blokować pętli.
+        # Cross-encoder prediction is CPU-bound (torch) — in a thread, to keep the loop free.
         scores = await anyio.to_thread.run_sync(self._scorer.predict, pairs)
 
         ranked = sorted(
@@ -108,10 +108,10 @@ class LocalCrossEncoderReranker(RerankerService):
 
 
 class LLMReranker(RerankerService):
-    """Listwise reranking przez skonfigurowany LLM.
+    """Listwise reranking by the configured LLM.
 
-    Prosi model o uszeregowanie kandydatów wg trafności i zwraca najlepsze top_k.
-    Przy nieparsowalnej odpowiedzi degraduje się łagodnie do kolejności wejściowej.
+    Asks the model to order the candidates by relevance and returns the best top_k. On an
+    unparseable response it degrades gracefully to the input order.
     """
 
     def __init__(self, llm: BaseChatModel):
@@ -158,8 +158,8 @@ class LLMReranker(RerankerService):
             return documents[:top_k]
 
         reranked = [documents[index] for index in ranked_indices]
-        # Dołóż fragmenty pominięte przez model (zachowując oryginalną kolejność),
-        # żeby nie zgubić kandydatów przy niekompletnej odpowiedzi.
+        # Append the chunks the model skipped (keeping the original order), so no candidate
+        # is lost when the response is incomplete.
         ranked_set = set(ranked_indices)
         reranked.extend(
             document for index, document in enumerate(documents) if index not in ranked_set
