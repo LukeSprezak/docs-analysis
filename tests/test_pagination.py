@@ -1,7 +1,8 @@
-"""Testy paginacji listy dokumentów — passthrough limit/offset + walidacja granic.
+"""Tests for document list pagination — limit/offset passthrough + bounds validation.
 
-Repo jest podmienione na mock (logika SQL LIMIT/OFFSET wymaga żywej bazy), więc sprawdzamy
-kontrakt warstwy HTTP: że parametry trafiają do repo i że FastAPI odrzuca wartości spoza zakresu.
+The repo is replaced with a mock (the SQL LIMIT/OFFSET logic needs a live database), so what we
+check is the HTTP-layer contract: that the parameters reach the repo and that FastAPI rejects
+out-of-range values.
 """
 
 from unittest.mock import AsyncMock, MagicMock

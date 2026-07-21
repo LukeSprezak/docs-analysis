@@ -23,15 +23,15 @@ async def test_upload_namespaces_document_id_and_saves_whole_document_without_pa
     vector_repo = FakeVectorRepo()
 
     document = await UploadDocumentUseCase(doc_repo, vector_repo).execute(
-        doc_id="a.txt", content="treść", metadata={"filename": "a.txt"}, owner_id="o1"
+        doc_id="a.txt", content="content", metadata={"filename": "a.txt"}, owner_id="o1"
     )
 
-    # Id namespace'owany per użytkownik (anty-kolizja nazw między userami).
+    # The id is namespaced per user (prevents name collisions between users).
     assert document.id == "o1::a.txt"
     saved_document, saved_owner = doc_repo.saved
     assert saved_document.id == "o1::a.txt"
     assert saved_owner == "o1"
-    # Bez pages cały dokument trafia do wektorów (chunking dzieje się w repo wektorowym).
+    # Without pages the whole document goes into the vectors (chunking happens in the vector repo).
     added_documents, added_owner = vector_repo.added
     assert added_owner == "o1"
     assert len(added_documents) == 1
@@ -42,20 +42,20 @@ async def test_upload_with_pages_carries_page_numbers_and_namespaced_id():
     doc_repo = FakeDocRepo()
     vector_repo = FakeVectorRepo()
     pages = [
-        Document(id="ignorowane", content="strona 1", metadata={"page": 1}),
-        Document(id="ignorowane", content="strona 2", metadata={"page": 2}),
+        Document(id="ignored", content="page 1", metadata={"page": 1}),
+        Document(id="ignored", content="page 2", metadata={"page": 2}),
     ]
 
     await UploadDocumentUseCase(doc_repo, vector_repo).execute(
         doc_id="r.pdf",
-        content="całość",
+        content="whole document",
         metadata={"filename": "r.pdf"},
         owner_id="o1",
         pages=pages,
     )
 
     added_documents, _ = vector_repo.added
-    # Każda strona idzie do wektorów z numerem strony i namespace'owanym id dokumentu.
+    # Every page goes into the vectors with its page number and the namespaced document id.
     assert [document.metadata["page"] for document in added_documents] == [1, 2]
     assert all(document.id == "o1::r.pdf" for document in added_documents)
     assert all(document.metadata["filename"] == "r.pdf" for document in added_documents)

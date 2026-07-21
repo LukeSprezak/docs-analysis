@@ -22,7 +22,7 @@ def _mock_upload():
 
 @pytest.mark.parametrize(
     "bad",
-    ["../../etc/passwd", "../secret.txt", "some/dir/plik.txt", "a\\b.txt", "..", ".", ""],
+    ["../../etc/passwd", "../secret.txt", "some/dir/file.txt", "a\\b.txt", "..", ".", ""],
 )
 def test_safe_document_path_rejects_path_components(bad):
     with pytest.raises(ValidationException):
@@ -30,16 +30,16 @@ def test_safe_document_path_rejects_path_components(bad):
 
 
 def test_safe_document_path_accepts_plain_filename():
-    path = safe_document_path("plik.txt", "owner-1")
-    assert os.path.basename(path) == "plik.txt"
-    # Plik trafia do podkatalogu właściciela, ale wciąż wewnątrz storage.
+    path = safe_document_path("file.txt", "owner-1")
+    assert os.path.basename(path) == "file.txt"
+    # The file lands in the owner's subdirectory, but still inside the storage.
     assert os.path.basename(os.path.dirname(path)) == "owner-1"
     assert is_within_storage(path)
 
 
 def test_safe_document_path_rejects_malicious_owner():
     with pytest.raises(ValidationException):
-        safe_document_path("plik.txt", "../escape")
+        safe_document_path("file.txt", "../escape")
 
 
 def test_is_within_storage():
@@ -66,19 +66,19 @@ def test_upload_rejects_oversized_file():
     app.dependency_overrides.clear()
 
 
-@pytest.mark.parametrize("good", ["plik.pdf", "PLIK.PDF", "notatka.txt", "readme.md"])
+@pytest.mark.parametrize("good", ["file.pdf", "FILE.PDF", "note.txt", "readme.md"])
 def test_validate_upload_extension_accepts_allowlisted(good):
     assert validate_upload_extension(good) == os.path.splitext(good)[1].lower()
 
 
-@pytest.mark.parametrize("bad", ["evil.exe", "archiwum.zip", "skrypt.sh", "obraz.png", "noext"])
+@pytest.mark.parametrize("bad", ["evil.exe", "archive.zip", "script.sh", "image.png", "noext"])
 def test_validate_upload_extension_rejects_others(bad):
     with pytest.raises(ValidationException):
         validate_upload_extension(bad)
 
 
 def test_validate_pdf_content_accepts_real_header():
-    validate_pdf_content(b"%PDF-1.7\n...reszta pliku...")
+    validate_pdf_content(b"%PDF-1.7\n...rest of the file...")
 
 
 @pytest.mark.parametrize("bad", [b"not a pdf at all", b"MZ\x90\x00", b"", b"PK\x03\x04zip"])
@@ -96,7 +96,7 @@ def test_upload_rejects_disallowed_extension():
 
 
 def test_upload_rejects_pdf_with_wrong_magic_bytes():
-    # Plik z rozszerzeniem .pdf, ale treścią nie-PDF → odrzucony po magic bytes.
+    # A file with a .pdf extension but non-PDF content → rejected on magic bytes.
     app.dependency_overrides[get_upload_document_use_case] = _mock_upload
     files = {"file": ("fake.pdf", b"this is plain text pretending to be a pdf")}
     resp = client.post("/api/v1/documents/upload", files=files)
@@ -105,7 +105,7 @@ def test_upload_rejects_pdf_with_wrong_magic_bytes():
 
 
 def test_upload_does_not_leak_exception_detail_to_client():
-    # Nieoczekiwany błąd use case z wrażliwym tekstem nie może trafić do odpowiedzi.
+    # An unexpected use case error carrying sensitive text must not reach the response.
     secret_detail = "secret connection string postgres://user:pass@host"
     mock = MagicMock()
     mock.execute = AsyncMock(side_effect=RuntimeError(secret_detail))

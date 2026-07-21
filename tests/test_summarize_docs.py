@@ -18,7 +18,7 @@ class FakeSummarizer:
 
     async def summarize(self, documents):
         self.received_documents = documents
-        return "streszczenie"
+        return "summary"
 
 
 class FakeSummaryRepo:
@@ -42,12 +42,12 @@ async def test_summarize_gathers_only_existing_owned_documents_and_saves():
         ["a", "missing", "b"], owner_id="o1"
     )
 
-    # get_by_id filtruje po owner; "missing" zwraca None i jest pomijany.
+    # get_by_id filters by owner; "missing" returns None and is skipped.
     assert summarizer.received_documents == [documents["a"], documents["b"]]
     assert [call[1] for call in doc_repo.get_calls] == ["o1", "o1", "o1"]
-    # Tekst ze streszczacza, ale lista document_ids zachowuje oryginalne wejście.
-    assert summary.text == "streszczenie"
+    # The text comes from the summarizer, but document_ids preserves the original input.
+    assert summary.text == "summary"
     assert summary.document_ids == ["a", "missing", "b"]
     saved_summary, saved_owner = summary_repo.saved
     assert saved_owner == "o1"
-    assert saved_summary.text == "streszczenie"
+    assert saved_summary.text == "summary"

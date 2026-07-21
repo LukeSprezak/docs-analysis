@@ -37,7 +37,7 @@ async def test_llm_reranker_reorders_by_model_indices():
 
 
 async def test_llm_reranker_falls_back_to_input_order_on_unparseable_output():
-    reranker = LLMReranker(_llm("nie wiem, przepraszam"))
+    reranker = LLMReranker(_llm("sorry, I don't know"))
     documents = _docs(4)
     assert await reranker.rerank("q", documents, top_k=2) == documents[:2]
 
@@ -45,7 +45,7 @@ async def test_llm_reranker_falls_back_to_input_order_on_unparseable_output():
 async def test_llm_reranker_appends_indices_missing_from_model_output():
     reranker = LLMReranker(_llm("[2]"))
     result = await reranker.rerank("q", _docs(4), top_k=3)
-    # po wskazanym [2] dokładamy resztę w oryginalnej kolejności
+    # after the indicated [2] we append the rest in their original order
     assert [document.id for document in result] == ["2", "0", "1"]
 
 
@@ -56,7 +56,7 @@ async def test_llm_reranker_ignores_out_of_range_indices():
 
 
 async def test_llm_reranker_skips_llm_for_single_document():
-    # Pusty iterator: gdyby LLM był wołany, poleciałby StopIteration.
+    # Empty iterator: if the LLM were called, it would raise StopIteration.
     reranker = LLMReranker(GenericFakeChatModel(messages=iter([])))
     documents = _docs(1)
     assert await reranker.rerank("q", documents, top_k=4) == documents
@@ -73,7 +73,7 @@ class _FakeRerankResponse:
 
 
 class _FakeCohereClient:
-    """Udaje cohere.ClientV2 — zwraca z góry ustalone uszeregowanie i zapisuje wywołanie."""
+    """Stands in for cohere.ClientV2 — returns a predetermined ordering and records the call."""
 
     def __init__(self, ordered_indices: list[int]):
         self._ordered_indices = ordered_indices
@@ -90,10 +90,10 @@ async def test_cohere_reranker_maps_result_indices_to_documents():
     client = _FakeCohereClient(ordered_indices=[3, 1, 0, 2, 4])
     reranker = CohereReranker(client=client, model="rerank-v3.5")
 
-    result = await reranker.rerank("pytanie", _docs(5), top_k=2)
+    result = await reranker.rerank("question", _docs(5), top_k=2)
 
     assert [document.id for document in result] == ["3", "1"]
-    # wysyłamy treści fragmentów i poprawne top_n
+    # we send the fragment contents and the correct top_n
     call = client.calls[0]
     assert call["documents"] == [f"passage {i}" for i in range(5)]
     assert call["top_n"] == 2
@@ -106,11 +106,11 @@ async def test_cohere_reranker_skips_api_for_single_document():
 
     documents = _docs(1)
     assert await reranker.rerank("q", documents, top_k=4) == documents
-    assert client.calls == []  # brak wywołania API dla <=1 dokumentu
+    assert client.calls == []  # no API call for <=1 document
 
 
 class _FakeCrossEncoder:
-    """Udaje sentence-transformers CrossEncoder — zwraca z góry zadane score'y."""
+    """Stands in for the sentence-transformers CrossEncoder — returns predetermined scores."""
 
     def __init__(self, scores_by_passage: dict[str, float]):
         self._scores_by_passage = scores_by_passage
@@ -123,17 +123,17 @@ class _FakeCrossEncoder:
 
 async def test_local_cross_encoder_sorts_by_score_descending():
     documents = _docs(4)
-    # passage 2 najtrafniejszy, potem 0, potem 3, potem 1
+    # passage 2 is the most relevant, then 0, then 3, then 1
     scorer = _FakeCrossEncoder(
         {"passage 0": 0.7, "passage 1": 0.1, "passage 2": 0.9, "passage 3": 0.5}
     )
     reranker = LocalCrossEncoderReranker(scorer=scorer)
 
-    result = await reranker.rerank("pytanie", documents, top_k=2)
+    result = await reranker.rerank("question", documents, top_k=2)
 
     assert [document.id for document in result] == ["2", "0"]
-    # scorer dostaje pary (query, treść fragmentu)
-    assert scorer.calls[0] == [("pytanie", f"passage {i}") for i in range(4)]
+    # the scorer receives (query, fragment content) pairs
+    assert scorer.calls[0] == [("question", f"passage {i}") for i in range(4)]
 
 
 async def test_local_cross_encoder_skips_scoring_for_single_document():
@@ -142,7 +142,7 @@ async def test_local_cross_encoder_skips_scoring_for_single_document():
 
     documents = _docs(1)
     assert await reranker.rerank("q", documents, top_k=4) == documents
-    assert scorer.calls == []  # brak liczenia dla <=1 dokumentu
+    assert scorer.calls == []  # no scoring for <=1 document
 
 
 def test_factory_returns_noop_when_disabled():

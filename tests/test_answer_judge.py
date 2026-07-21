@@ -16,9 +16,9 @@ def _judge(content: str) -> LLMAnswerJudge:
         ("0.8", 0.8),
         ("1.0", 1.0),
         ("0", 0.0),
-        ("Ocena: 0,75", 0.75),  # decimal point
-        ("nie wiem", 0.0),  # unparsable → 0.0
-        ("1.5", 1.0),  # trimming do [0, 1]
+        ("Score: 0,75", 0.75),  # comma as the decimal separator
+        ("no idea", 0.0),  # unparsable → 0.0
+        ("1.5", 1.0),  # clamped to [0, 1]
     ],
 )
 def test_parse_score(raw, expected):

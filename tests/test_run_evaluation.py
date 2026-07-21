@@ -13,7 +13,7 @@ from app.knowledge_management.domain.models import Document
 
 class FakeVectorStoreRepo:
     async def search(self, query, owner_id, top_k=4):
-        return [Document(id="d", content="kontekst", metadata={"filename": "good.pdf"})]
+        return [Document(id="d", content="context", metadata={"filename": "good.pdf"})]
 
     async def add_documents(self, documents, owner_id):  # pragma: no cover
         raise NotImplementedError
@@ -29,7 +29,7 @@ class PassthroughReranker:
 
 class FakeRAGService:
     async def answer_question(self, question, context, history=None):
-        return "odpowiedź"
+        return "answer"
 
     async def condense_question(self, question, history):  # pragma: no cover
         return question
@@ -81,7 +81,7 @@ async def test_format_report_omits_generation_section_when_absent():
 
     assert "RETRIEVAL:" in text
     assert "hit_rate@k" in text
-    assert "GENERACJA" not in text
+    assert "GENERATION" not in text
 
 
 async def test_format_report_includes_generation_section_when_present():
@@ -91,5 +91,5 @@ async def test_format_report_includes_generation_section_when_present():
     )
     text = format_report(report)
 
-    assert "GENERACJA (LLM-as-judge):" in text
+    assert "GENERATION (LLM-as-judge):" in text
     assert "faithfulness" in text

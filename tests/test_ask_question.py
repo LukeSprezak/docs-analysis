@@ -45,7 +45,7 @@ def _build_documents(count):
     ]
 
 
-async def test_execute_pobiera_kandydatow_rerankuje_i_odpowiada():
+async def test_execute_fetches_candidates_reranks_and_answers():
     documents = _build_documents(5)
     vector_repo = FakeVectorStoreRepo(documents)
     reranker = FakeReranker()
@@ -65,6 +65,6 @@ async def test_execute_pobiera_kandydatow_rerankuje_i_odpowiada():
     assert vector_repo.search_owner_id == "owner1"
     assert reranker.rerank_top_k == 2
     assert len(answer.sources) == 2
-    # The RAG receives precisely sorted fragments.
+    # The RAG receives exactly the reranked fragments.
     assert rag_service.received_documents == documents[:2]
-    assert answer.text == "response based on the context"
+    assert answer.text == "Answer based on the context"

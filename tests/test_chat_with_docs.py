@@ -39,18 +39,18 @@ def test_chat_uses_persisted_history_for_condense_and_answer():
         uc.execute("And what's the complexity?", "owner1", history=None, conversation_id="c1")
     )
 
-    # Condense receives a direct question + a conversation history
+    # condense receives the raw question + the conversation history
     rag.condense_question.assert_called_once()
     q_arg, hist_arg = rag.condense_question.call_args.args
     assert q_arg == "And what's the complexity?"
     assert hist_arg == [
-        {"role": "user", "content": "What is the complexity of quicksort?"},
+        {"role": "user", "content": "What is quick sort?"},
         {"role": "assistant", "content": "This is a sorting algorithm."},
     ]
-    # retrieval after the REVISED question, not after the original one
+    # retrieval runs on the REWRITTEN question, not on the original one
     vec.search.assert_called_once()
-    assert vec.search.call_args.args[0] == "Jaka jest złożoność quicksort?"
-    # response generated with history
+    assert vec.search.call_args.args[0] == "What is the complexity of quicksort?"
+    # the answer is generated with the history
     assert rag.answer_question.call_args.kwargs["history"] == hist_arg
     assert answer.text == "O(n log n)"
     assert cid == "c1"
@@ -106,7 +106,7 @@ def test_chat_reranks_candidates_before_answering():
     candidates = [Document(id=str(i), content=f"c{i}", metadata={}) for i in range(5)]
     vec = _vec(candidates)
     reranker = MagicMock()
-    # reranker flips and crops to 2
+    # the reranker reverses the order and trims to 2
     reranker.rerank = AsyncMock(
         side_effect=lambda query, documents, top_k=4: list(reversed(documents))[:2]
     )
@@ -114,10 +114,10 @@ def test_chat_reranks_candidates_before_answering():
     uc = ChatWithDocsUseCase(vec, rag, conv_repo, reranker, candidate_count=5, top_k=2)
     answer, _ = asyncio.run(uc.execute("q", "owner1", conversation_id=None))
 
-    # The reranker receives candidates from the vector search
+    # the reranker receives the candidates from the vector search
     reranker.rerank.assert_called_once()
     assert reranker.rerank.call_args.args[1] == candidates
-    # These sorted excerpts are included in the responses and serve as sources
+    # the reranked excerpts go into the answer and serve as its sources
     assert [document.id for document in answer.sources] == ["4", "3"]
     assert rag.answer_question.call_args.args[1] == [candidates[4], candidates[3]]
 
@@ -152,7 +152,7 @@ def test_execute_stream_yields_tokens_then_done_and_persists_full_answer():
     assert len(done["sources"]) == 1
     assert done["sources"][0].id == "d"
 
-    # The complete, compiled answer is saved
+    # the full, assembled answer is persisted
     conv_repo.save.assert_called_once()
     saved_conversation = conv_repo.save.call_args.args[0]
     assert saved_conversation.messages[-1].role == "assistant"

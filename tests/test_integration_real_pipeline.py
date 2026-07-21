@@ -1,12 +1,12 @@
-"""Prawdziwy test integracyjny ścieżki RAG — w odróżnieniu od `test_integration.py`
-(który mockuje use case'y i testuje tylko routing FastAPI), tutaj przez całą ścieżkę
-przechodzą REALNE komponenty: `UploadDocumentUseCase` → realny `FaissVectorStoreRepo`
-(chunking + embedding) → `AskQuestionUseCase` → realny reranker + realny `LangChainRAGService`.
+"""A true integration test of the RAG path — unlike `test_integration.py`
+(which mocks the use cases and only exercises FastAPI routing), here REAL components run
+end to end: `UploadDocumentUseCase` → a real `FaissVectorStoreRepo`
+(chunking + embedding) → `AskQuestionUseCase` → a real reranker + a real `LangChainRAGService`.
 
-Bez sieci: embeddingi deterministyczne (`DeterministicFakeEmbedding`), LLM zamockowany na
-poziomie biblioteki (`GenericFakeChatModel`) — nie mockujemy żadnego use case'a ani repo.
-E2E na realnym Postgresie (testcontainers / docker pgvector) zostaje jako osobne zadanie
-(wymaga żywej bazy) — FAISS pokrywa pełną logikę retrievalu offline.
+No network: deterministic embeddings (`DeterministicFakeEmbedding`) and an LLM mocked at the
+library level (`GenericFakeChatModel`) — no use case or repo is mocked.
+E2E against a real Postgres (testcontainers / docker pgvector) is left as a separate task
+(it needs a live database) — FAISS covers the full retrieval logic offline.
 """
 
 from langchain_core.embeddings import DeterministicFakeEmbedding
@@ -40,12 +40,12 @@ async def test_upload_then_ask_flows_through_real_components():
 
     await UploadDocumentUseCase(doc_repo, vector_repo).execute(
         doc_id="algo.txt",
-        content="Quicksort ma złożoność O(n log n) w średnim przypadku. " * 10,
+        content="Quicksort has O(n log n) complexity in the average case. " * 10,
         metadata={"filename": "algo.txt"},
         owner_id="o1",
     )
 
-    # Upload zapisał dokument (namespaced) w repo dokumentów ORAZ fragmenty w wektorach.
+    # The upload stored the (namespaced) document in the document repo AND its fragments in the vectors.
     assert "o1::algo.txt" in doc_repo.documents
 
     fake_llm = GenericFakeChatModel(messages=iter([AIMessage(content="Quicksort: O(n log n).")]))
@@ -57,10 +57,10 @@ async def test_upload_then_ask_flows_through_real_components():
         top_k=4,
     )
 
-    answer = await ask.execute("Jaka jest złożoność quicksort?", owner_id="o1")
+    answer = await ask.execute("What is the complexity of quicksort?", owner_id="o1")
 
     assert answer.text == "Quicksort: O(n log n)."
-    # Retrieval realnie zwrócił fragmenty wgranego dokumentu.
+    # Retrieval really did return fragments of the uploaded document.
     assert len(answer.sources) > 0
     assert any("Quicksort" in source.content for source in answer.sources)
 
@@ -74,18 +74,18 @@ async def test_retrieval_is_isolated_per_owner_end_to_end():
     upload = UploadDocumentUseCase(doc_repo, vector_repo)
 
     await upload.execute(
-        doc_id="tajne.txt",
-        content="Poufne dane firmy ACME.",
-        metadata={"filename": "tajne.txt"},
-        owner_id="wlasciciel",
+        doc_id="secret.txt",
+        content="Confidential ACME company data.",
+        metadata={"filename": "secret.txt"},
+        owner_id="owner",
     )
 
-    fake_llm = GenericFakeChatModel(messages=iter([AIMessage(content="brak kontekstu")]))
+    fake_llm = GenericFakeChatModel(messages=iter([AIMessage(content="no context")]))
     ask = AskQuestionUseCase(
         vector_repo, LangChainRAGService(llm=fake_llm), NoOpReranker(), candidate_count=20, top_k=4
     )
 
-    # Inny użytkownik nie może wyszukać cudzego dokumentu (izolacja owner_id w retrievalu).
-    answer = await ask.execute("Poufne dane ACME?", owner_id="intruz")
+    # Another user cannot search someone else's document (owner_id isolation in retrieval).
+    answer = await ask.execute("Confidential ACME data?", owner_id="intruder")
 
     assert answer.sources == []

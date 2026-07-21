@@ -71,4 +71,4 @@ async def test_authenticate_rejects_wrong_password():
 async def test_authenticate_rejects_unknown_user():
     use_case = AuthenticateUserUseCase(FakeUserRepo())
     with pytest.raises(AuthenticationException):
-        await use_case.execute("nieznany@example.com", "haslo")
+        await use_case.execute("unknown@example.com", "password")

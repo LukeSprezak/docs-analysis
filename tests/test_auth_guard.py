@@ -48,7 +48,7 @@ def test_protected_endpoint_with_invalid_token_returns_401():
     response = client.post(
         "/api/v1/qa/ask",
         json={"question": "anything"},
-        headers={"Authorization": "Bearer nie-jest-tokenem"},
+        headers={"Authorization": "Bearer not-a-token"},
     )
 
     assert response.status_code == 401
@@ -63,7 +63,7 @@ def test_valid_token_passes_guard_and_reaches_use_case():
     mock_use_case = MagicMock()
     mock_use_case.execute = AsyncMock(
         return_value=Answer(
-            text="odpowiedź",
+            text="answer",
             sources=[
                 Document(id="u1::doc.pdf", content="x", metadata={"filename": "doc.pdf"})
             ],
@@ -74,12 +74,12 @@ def test_valid_token_passes_guard_and_reaches_use_case():
     token = create_access_token(user.id)
     response = client.post(
         "/api/v1/qa/ask",
-        json={"question": "pytanie"},
+        json={"question": "question"},
         headers={"Authorization": f"Bearer {token}"},
     )
 
     assert response.status_code == 200
-    assert response.json()["answer"] == "odpowiedź"
+    assert response.json()["answer"] == "answer"
     # the use case received the logged-in user's ID as the owner_id
     assert mock_use_case.execute.call_args.args[1] == "u1"
     app.dependency_overrides.clear()

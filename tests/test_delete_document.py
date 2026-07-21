@@ -45,7 +45,7 @@ async def test_delete_own_document_removes_file_and_vectors():
 
 
 async def test_delete_missing_or_foreign_document_is_noop():
-    # get_by_id filtruje po owner_id — cudzego dokumentu nie zwróci → None.
+    # get_by_id filters by owner_id — someone else's document is never returned → None.
     doc_repo = FakeDocRepo(None)
     vector_repo = FakeVectorRepo()
 
@@ -57,7 +57,7 @@ async def test_delete_missing_or_foreign_document_is_noop():
 
 
 async def test_delete_does_not_remove_file_outside_storage():
-    # The metadata indicates that the file is OUTSIDE the storage—Guard cannot access it.
+    # The metadata points to a file OUTSIDE the storage — the guard must not touch it.
     file_descriptor, outside_path = tempfile.mkstemp()
     os.close(file_descriptor)
     try:
@@ -67,8 +67,8 @@ async def test_delete_does_not_remove_file_outside_storage():
 
         await DeleteDocumentUseCase(doc_repo, vector_repo).execute("o1::a.txt", "o1")
 
-        assert Path(outside_path).exists()  # NOT deleted (protection against deleting other people's files)
-        # NIE usunięto (ochrona przed usunięciem plików innych osób)
+        # NOT deleted (protection against removing other people's files)
+        assert Path(outside_path).exists()
         assert vector_repo.deleted == [("o1::a.txt", "o1")]
         assert doc_repo.deleted == [("o1::a.txt", "o1")]
     finally:

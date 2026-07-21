@@ -31,7 +31,7 @@ class FakeRAGService:
 
     async def answer_question(self, question, context, history=None):
         self.received_context = context
-        return f"odpowiedź na: {question}"
+        return f"Answer to: {question}"
 
     async def condense_question(self, question, history):  # pragma: no cover
         return question
@@ -41,7 +41,7 @@ class FakeRAGService:
 
 
 class FakeJudge:
-    """It returns the final grades and stores the information it received for grading."""
+    """Returns fixed scores and records what it was given to score."""
 
     def __init__(self, faithfulness, answer_relevance):
         self._faithfulness = faithfulness
@@ -66,7 +66,7 @@ def _build(documents, rag_service, judge, top_k=4):
 
 
 async def test_evaluate_example_generates_answer_and_scores_it():
-    documents = [Document(id="d", content="kontekst", metadata={})]
+    documents = [Document(id="d", content="context", metadata={})]
     rag_service = FakeRAGService()
     judge = FakeJudge(faithfulness=0.9, answer_relevance=0.8)
     evaluator = _build(documents, rag_service, judge)
@@ -75,16 +75,16 @@ async def test_evaluate_example_generates_answer_and_scores_it():
         EvaluationExample(question="Question?", relevant_document_ids=["d"]), owner_id="owner1"
     )
 
-    assert result.answer == "Response to: Question?"
+    assert result.answer == "Answer to: Question?"
     assert result.faithfulness == 0.9
     assert result.answer_relevance == 0.8
-    # The “faithfulness” metric receives a sophisticated context and relevance—a question and an answer
+    # faithfulness is scored against the retrieved context, relevance against question + answer
     assert judge.faithfulness_context == documents
-    assert judge.relevance_args == ("Question?", "Response to: Question?")
+    assert judge.relevance_args == ("Question?", "Answer to: Question?")
 
 
 async def test_evaluate_aggregates_generation_metrics():
-    documents = [Document(id="d", content="kontekst", metadata={})]
+    documents = [Document(id="d", content="context", metadata={})]
     evaluator = _build(documents, FakeRAGService(), FakeJudge(0.6, 1.0))
     examples = [
         EvaluationExample(question="A", relevant_document_ids=["d"]),

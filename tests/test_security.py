@@ -7,18 +7,18 @@ from app.identity.security import (
 
 
 def test_hash_password_is_not_plaintext_and_verifies():
-    hashed = hash_password("tajne-haslo")
-    assert hashed != "tajne-haslo"
-    assert verify_password("tajne-haslo", hashed) is True
+    hashed = hash_password("secret-password")
+    assert hashed != "secret-password"
+    assert verify_password("secret-password", hashed) is True
 
 
 def test_verify_password_rejects_wrong_password():
-    hashed = hash_password("tajne-haslo")
-    assert verify_password("inne-haslo", hashed) is False
+    hashed = hash_password("secret-password")
+    assert verify_password("other-password", hashed) is False
 
 
 def test_verify_password_fail_closed_on_corrupted_hash():
-    assert verify_password("cokolwiek", "to-nie-jest-bcrypt") is False
+    assert verify_password("whatever", "this-is-not-bcrypt") is False
 
 
 def test_token_roundtrip_returns_subject():
@@ -27,11 +27,11 @@ def test_token_roundtrip_returns_subject():
 
 
 def test_decode_rejects_garbage_token():
-    assert decode_access_token("nie.jest.tokenem") is None
+    assert decode_access_token("not.a.token") is None
 
 
 def test_decode_rejects_token_signed_with_other_secret():
     import jwt
 
-    foreign = jwt.encode({"sub": "user-123"}, "inny-sekret", algorithm="HS256")
+    foreign = jwt.encode({"sub": "user-123"}, "another-secret", algorithm="HS256")
     assert decode_access_token(foreign) is None

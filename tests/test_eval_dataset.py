@@ -47,5 +47,5 @@ def test_load_examples_reads_json_file(tmp_path):
 def test_load_examples_rejects_non_list_root(tmp_path):
     path = tmp_path / "bad.json"
     path.write_text(json.dumps({"question": "Q"}), encoding="utf-8")
-    with pytest.raises(ValueError, match="listą"):
+    with pytest.raises(ValueError, match="list"):
         load_examples(path)

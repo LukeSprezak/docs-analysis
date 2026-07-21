@@ -6,8 +6,8 @@ from app.knowledge_management.infrastructure.persistence.rank_fusion import (
 
 
 def test_rrf_promotes_key_present_in_both_rankings():
-    # "b" jest 2. w obu rankingach; "a" i "c" tylko 1. w jednym.
-    # Suma 1/(60+2)+1/(60+2) dla "b" bije pojedyncze 1/(60+1).
+    # "b" is 2nd in both rankings; "a" and "c" are 1st in only one of them.
+    # The sum 1/(60+2)+1/(60+2) for "b" beats a single 1/(60+1).
     fused = reciprocal_rank_fusion([["a", "b"], ["c", "b"]])
     assert fused[0] == "b"
 
@@ -17,8 +17,8 @@ def test_rrf_single_ranking_preserves_order():
 
 
 def test_rrf_smoothing_constant_controls_top_weight():
-    # Przy małej stałej wygładzającej wysokie pozycje ważą mocniej: "a" (1. w jednym)
-    # przebija "b" (2. w obu).
+    # With a small smoothing constant the top positions weigh more: "a" (1st in one list)
+    # beats "b" (2nd in both).
     fused = reciprocal_rank_fusion([["a", "b"], ["c", "b"]], smoothing_constant=0)
     assert fused[0] == "a"
 
@@ -40,15 +40,15 @@ def _key(document: Document) -> str:
 
 
 def test_fuse_documents_deduplicates_same_chunk_across_lists():
-    shared = _chunk("doc", 1, "wspólny fragment")
+    shared = _chunk("doc", 1, "shared fragment")
     vector_hits = [shared, _chunk("doc", 2)]
     keyword_hits = [shared, _chunk("doc", 3)]
 
     fused = fuse_documents([vector_hits, keyword_hits], top_k=10, key_of=_key)
 
     keys = [_key(document) for document in fused]
-    assert keys.count("doc::1") == 1  # wspólny fragment nie dubluje się
-    assert fused[0].content == "wspólny fragment"  # i awansuje na czoło
+    assert keys.count("doc::1") == 1  # the shared fragment is not duplicated
+    assert fused[0].content == "shared fragment"  # and it is promoted to the top
     assert len(fused) == 3
 
 
