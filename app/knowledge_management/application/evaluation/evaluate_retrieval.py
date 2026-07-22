@@ -1,6 +1,7 @@
 from collections.abc import Callable, Sequence
 
 from ...domain.evaluation import (
+    UNCATEGORIZED,
     EvaluationExample,
     RetrievalExampleResult,
     RetrievalMetrics,
@@ -48,17 +49,36 @@ class RetrievalEvaluator:
                 retrieved_document_ids, relevant, top_k
             ),
             recall_at_k=retrieval_metrics.recall_at_k(retrieved_document_ids, relevant, top_k),
+            category=example.category,
         )
 
     async def evaluate(
         self, examples: Sequence[EvaluationExample], owner_id: str
     ) -> tuple[RetrievalMetrics, list[RetrievalExampleResult]]:
         results = [await self.evaluate_example(example, owner_id) for example in examples]
-        metrics = RetrievalMetrics(
-            example_count=len(results),
-            hit_rate=retrieval_metrics.mean([1.0 if r.is_hit else 0.0 for r in results]),
-            mean_reciprocal_rank=retrieval_metrics.mean([r.reciprocal_rank for r in results]),
-            mean_precision_at_k=retrieval_metrics.mean([r.precision_at_k for r in results]),
-            mean_recall_at_k=retrieval_metrics.mean([r.recall_at_k for r in results]),
-        )
-        return metrics, results
+        return aggregate_metrics(results), results
+
+
+def aggregate_metrics(results: Sequence[RetrievalExampleResult]) -> RetrievalMetrics:
+    """Averages per-question results into the headline metrics.
+
+    Extracted so the same aggregation can be applied to a subset — grouping by category is
+    just this function over each group.
+    """
+    return RetrievalMetrics(
+        example_count=len(results),
+        hit_rate=retrieval_metrics.mean([1.0 if r.is_hit else 0.0 for r in results]),
+        mean_reciprocal_rank=retrieval_metrics.mean([r.reciprocal_rank for r in results]),
+        mean_precision_at_k=retrieval_metrics.mean([r.precision_at_k for r in results]),
+        mean_recall_at_k=retrieval_metrics.mean([r.recall_at_k for r in results]),
+    )
+
+
+def group_by_category(
+    results: Sequence[RetrievalExampleResult],
+) -> dict[str, RetrievalMetrics]:
+    """Metrics per question category, in first-appearance order."""
+    grouped: dict[str, list[RetrievalExampleResult]] = {}
+    for result in results:
+        grouped.setdefault(result.category or UNCATEGORIZED, []).append(result)
+    return {category: aggregate_metrics(group) for category, group in grouped.items()}

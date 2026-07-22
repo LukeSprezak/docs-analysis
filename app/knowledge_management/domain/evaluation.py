@@ -13,6 +13,16 @@ class EvaluationExample:
     question: str
     relevant_document_ids: list[str]
     reference_answer: str | None = None
+    category: str | None = None
+
+
+# The two question shapes worth measuring separately. A single average over both hides the
+# effect being measured: adding a knowledge graph helps CROSS_DOCUMENT questions and can only
+# dilute precision on SINGLE_PASSAGE ones, so a mixed set can show ~zero delta while the graph
+# is in fact winning badly on one half and losing on the other.
+CATEGORY_SINGLE_PASSAGE = "single_passage"
+CATEGORY_CROSS_DOCUMENT = "cross_document"
+UNCATEGORIZED = "uncategorized"
 
 
 @dataclass
@@ -26,6 +36,7 @@ class RetrievalExampleResult:
     reciprocal_rank: float
     precision_at_k: float
     recall_at_k: float
+    category: str | None = None
 
 
 @dataclass

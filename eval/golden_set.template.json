@@ -1,0 +1,37 @@
+[
+  {
+    "_comment_single_passage": "SINGLE_PASSAGE — the answer sits in one contiguous passage of one document. This is what plain vector search is good at. The knowledge graph cannot help here and its extra candidates compete for the same top_k slots, so expect precision@k to hold steady at best and drop at worst. These questions exist to catch the graph making things WORSE; without them a comparison only ever shows upside.",
+    "question": "Jaka jest złożoność czasowa quicksort w najgorszym przypadku?",
+    "relevant_document_ids": ["algorytmy.pdf"],
+    "reference_answer": "O(n^2), gdy pivot jest konsekwentnie najgorszy z możliwych.",
+    "category": "single_passage"
+  },
+  {
+    "question": "Jakie warunki wstępne musi spełniać tablica, żeby działało wyszukiwanie binarne?",
+    "relevant_document_ids": ["algorytmy.pdf"],
+    "reference_answer": "Tablica musi być posortowana.",
+    "category": "single_passage"
+  },
+  {
+    "question": "Ile wynosi domyślny rozmiar puli połączeń w konfiguracji serwisu?",
+    "relevant_document_ids": ["konfiguracja.md"],
+    "category": "single_passage"
+  },
+  {
+    "_comment_cross_document": "CROSS_DOCUMENT — answering requires connecting entities described in SEPARATE documents, so no single passage contains the answer. This is the only shape where a knowledge graph can win, because facts extracted from different files join on entity name. Note `relevant_document_ids` lists EVERY document that has to be reached: with several, recall@k becomes the metric that actually discriminates, while hit_rate@k stays satisfied by finding just one of them.",
+    "question": "Który zespół odpowiada za usługę, z której korzysta moduł płatności?",
+    "relevant_document_ids": ["architektura.md", "zespoly.md"],
+    "reference_answer": "Uzupełnij po wgraniu korpusu.",
+    "category": "cross_document"
+  },
+  {
+    "question": "Jakie systemy przestaną działać, jeśli baza raportowa będzie niedostępna?",
+    "relevant_document_ids": ["architektura.md", "raportowanie.md"],
+    "category": "cross_document"
+  },
+  {
+    "question": "Czy biblioteka używana przez moduł importu ma znane ograniczenia opisane gdzie indziej?",
+    "relevant_document_ids": ["import.md", "znane-problemy.md"],
+    "category": "cross_document"
+  }
+]

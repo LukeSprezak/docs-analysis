@@ -11,6 +11,14 @@ or nightly, not an offline unit test (the metrics themselves are tested offline 
 Example:
     uv run python -m app.knowledge_management.application.evaluation.run_evaluation \\
         --dataset eval/golden_set.json --owner-id <user_id>
+
+A/B of the retrieval pipeline with and without the knowledge graph (same corpus, same
+reranker — the graph is the only variable). Copy `eval/golden_set.template.json` first; it
+explains the question categories the report breaks the numbers down by:
+
+    KNOWLEDGE_GRAPH_PROVIDER=neo4j uv run python -m \\
+        app.knowledge_management.application.evaluation.run_evaluation \\
+        --dataset eval/golden_set.json --owner-id <user_id> --compare-graph
 """
 
 import argparse
@@ -19,12 +27,12 @@ import json
 from collections.abc import Sequence
 from dataclasses import asdict
 
-from ...domain.evaluation import EvaluationExample, EvaluationReport
+from ...domain.evaluation import EvaluationExample, EvaluationReport, RetrievalMetrics
 from ...domain.null_knowledge_graph_repo import NullKnowledgeGraphRepo
 from ...domain.repositories import KnowledgeGraphRepo
 from .dataset import load_examples
 from .evaluate_generation import GenerationEvaluator
-from .evaluate_retrieval import RetrievalEvaluator
+from .evaluate_retrieval import RetrievalEvaluator, group_by_category
 
 
 async def build_report(
@@ -75,30 +83,90 @@ def format_comparison(
     the pipeline change rather than by LLM sampling noise. A judge-scored generation delta
     would need repeated runs to separate signal from variance.
     """
-    rows = [
-        ("hit_rate@k", "hit_rate"),
-        ("MRR", "mean_reciprocal_rank"),
-        ("precision@k", "mean_precision_at_k"),
-        ("recall@k", "mean_recall_at_k"),
-    ]
     lines = [
         f"Retrieval comparison over {baseline.retrieval.example_count} questions",
         "",
-        f"{'metric':<18}{'vector-only':>13}{candidate_label:>15}{'delta':>10}",
-        "-" * 56,
+        "OVERALL",
+        *_comparison_rows(baseline.retrieval, candidate.retrieval, candidate_label),
     ]
-    for label, attribute in rows:
-        before = getattr(baseline.retrieval, attribute)
-        after = getattr(candidate.retrieval, attribute)
-        lines.append(f"{label:<18}{before:>13.3f}{after:>15.3f}{after - before:>+10.3f}")
 
-    regressed = [
-        label
-        for label, attribute in rows
-        if getattr(candidate.retrieval, attribute) < getattr(baseline.retrieval, attribute)
-    ]
-    lines += ["", f"Regressions: {', '.join(regressed) if regressed else 'none'}"]
+    # The per-category view is the one to read. The overall average mixes question shapes the
+    # graph affects in opposite directions, so it can sit near zero while both halves moved a
+    # long way — see the category note in `domain/evaluation.py`.
+    baseline_by_category = group_by_category(baseline.retrieval_details)
+    candidate_by_category = group_by_category(candidate.retrieval_details)
+    for category, baseline_metrics in baseline_by_category.items():
+        candidate_metrics = candidate_by_category.get(category)
+        if candidate_metrics is None:
+            continue
+        lines += [
+            "",
+            f"{category.upper()} ({baseline_metrics.example_count} questions)",
+            *_comparison_rows(baseline_metrics, candidate_metrics, candidate_label),
+        ]
+
+    lines += ["", *_format_regressions(baseline, candidate)]
     return "\n".join(lines)
+
+
+def find_regressions(
+    baseline: EvaluationReport, candidate: EvaluationReport
+) -> dict[str, list[str]]:
+    """Metrics that got worse, per question category — keyed by category, empty when clean.
+
+    Scoped per category rather than over the whole set on purpose. A graph that wins big on
+    cross-document questions while breaking single-passage ones nets out to a flat overall
+    average, so an overall-only check reports "no regressions" for exactly the outcome you
+    most need to see. This is the shape to gate CI on.
+    """
+    baseline_by_category = group_by_category(baseline.retrieval_details)
+    candidate_by_category = group_by_category(candidate.retrieval_details)
+
+    regressions: dict[str, list[str]] = {}
+    for category, baseline_metrics in baseline_by_category.items():
+        candidate_metrics = candidate_by_category.get(category)
+        if candidate_metrics is None:
+            continue
+        regressed = [
+            label
+            for label, attribute in _COMPARISON_METRICS
+            if getattr(candidate_metrics, attribute) < getattr(baseline_metrics, attribute)
+        ]
+        if regressed:
+            regressions[category] = regressed
+    return regressions
+
+
+def _format_regressions(baseline: EvaluationReport, candidate: EvaluationReport) -> list[str]:
+    regressions = find_regressions(baseline, candidate)
+    if not regressions:
+        return ["Regressions: none"]
+    return [
+        "Regressions (per category):",
+        *(f"  {category}: {', '.join(metrics)}" for category, metrics in regressions.items()),
+    ]
+
+
+_COMPARISON_METRICS = [
+    ("hit_rate@k", "hit_rate"),
+    ("MRR", "mean_reciprocal_rank"),
+    ("precision@k", "mean_precision_at_k"),
+    ("recall@k", "mean_recall_at_k"),
+]
+
+
+def _comparison_rows(
+    baseline: RetrievalMetrics, candidate: RetrievalMetrics, candidate_label: str
+) -> list[str]:
+    rows = [
+        f"  {'metric':<16}{'vector-only':>13}{candidate_label:>15}{'delta':>10}",
+        "  " + "-" * 54,
+    ]
+    for label, attribute in _COMPARISON_METRICS:
+        before = getattr(baseline, attribute)
+        after = getattr(candidate, attribute)
+        rows.append(f"  {label:<16}{before:>13.3f}{after:>15.3f}{after - before:>+10.3f}")
+    return rows
 
 
 def _parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -121,7 +189,20 @@ def _parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
             " real graph, and that corpus to have been uploaded with the graph enabled."
         ),
     )
-    return parser.parse_args(argv)
+    parser.add_argument(
+        "--fail-on-regression",
+        action="store_true",
+        help=(
+            "Exit non-zero when any metric got worse in any question category. Off by default"
+            " so an exploratory run still prints its numbers instead of just failing."
+        ),
+    )
+    arguments = parser.parse_args(argv)
+    if arguments.fail_on_regression and not arguments.compare_graph:
+        # There is nothing to regress against without a second pipeline to compare to;
+        # silently ignoring the flag would make a CI gate look active when it never runs.
+        parser.error("--fail-on-regression requires --compare-graph")
+    return arguments
 
 
 async def main(argv: Sequence[str] | None = None) -> None:

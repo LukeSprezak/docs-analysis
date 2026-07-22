@@ -20,11 +20,18 @@ def parse_examples(raw_examples: list[dict[str, Any]]) -> list[EvaluationExample
         reference_answer = record.get("reference_answer")
         if reference_answer is not None and not isinstance(reference_answer, str):
             raise ValueError(f"Example #{index}: 'reference_answer' must be a string or null.")
+        # Free-form on purpose: a new question shape should be a golden-set edit, not a code
+        # change. The report groups by whatever values appear, so a typo shows up as its own
+        # row rather than silently joining another category.
+        category = record.get("category")
+        if category is not None and not isinstance(category, str):
+            raise ValueError(f"Example #{index}: 'category' must be a string or null.")
         examples.append(
             EvaluationExample(
                 question=question,
                 relevant_document_ids=relevant,
                 reference_answer=reference_answer,
+                category=category,
             )
         )
     return examples
