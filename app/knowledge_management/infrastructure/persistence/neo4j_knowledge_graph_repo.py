@@ -138,7 +138,7 @@ class Neo4jKnowledgeGraphRepo(KnowledgeGraphRepo):
                 "top_k": top_k,
             },
         )
-        return [self._to_document(row) for row in rows]
+        return [self._to_document(row, owner_id) for row in rows]
 
     async def delete_by_document_id(self, doc_id: str, owner_id: str) -> None:
         # Drop this document's claim, then remove whatever no document asserts any more.
@@ -168,17 +168,30 @@ class Neo4jKnowledgeGraphRepo(KnowledgeGraphRepo):
         return await run_in_executor(None, lambda: self.graph.query(cypher, params=params))
 
     @staticmethod
-    def _to_document(row: dict[str, Any]) -> Document:
-        """Renders a triple as a sentence the LLM can read as context."""
-        doc_ids = row.get("doc_ids") or []
+    def _to_document(row: dict[str, Any], owner_id: str) -> Document:
+        """Renders a triple as a sentence the LLM can read as context.
+
+        The metadata has to carry the same provenance keys a vector hit does. Document ids
+        are namespaced (`"{owner_id}::{filename}"` — see `UploadDocumentUseCase`), and both
+        citation and the evaluation harness match on the plain file name, so the prefix is
+        stripped back off here. Without `filename` every graph hit would be scored against a
+        name no golden set contains, and the graph would measure as useless no matter how
+        good it is.
+        """
+        doc_ids = [str(doc_id) for doc_id in row.get("doc_ids") or []]
+        primary_doc_id = doc_ids[0] if doc_ids else None
         return Document(
-            id=str(doc_ids[0]) if doc_ids else "knowledge-graph",
+            id=primary_doc_id or "knowledge-graph",
             content=f"{row['source']} {row['type']} {row['target']}",
             metadata={
                 # Marks the provenance so an answer can say the fact came from the graph
                 # rather than from a quoted passage.
                 "source": "knowledge_graph",
-                "doc_ids": list(doc_ids),
+                "doc_ids": doc_ids,
+                "doc_id": primary_doc_id,
+                "filename": (
+                    primary_doc_id.removeprefix(f"{owner_id}::") if primary_doc_id else None
+                ),
             },
         )
 

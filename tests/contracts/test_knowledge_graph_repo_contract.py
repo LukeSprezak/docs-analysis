@@ -131,6 +131,20 @@ async def test_search_returns_facts_connected_to_the_named_entity(
     assert results[0].metadata["doc_ids"] == ["d.txt"]
 
 
+async def test_results_carry_the_plain_filename_for_citation_and_scoring(
+    storing_graph_repo: KnowledgeGraphRepo,
+) -> None:
+    # Document ids are namespaced per owner, but citations and the eval harness match on the
+    # bare file name — a graph hit without `filename` scores as a miss against every golden
+    # set, making the graph look worthless regardless of its actual quality.
+    await storing_graph_repo.add_fragment(fragment("alice::manual.pdf", SUPPORTS), owner_id="alice")
+
+    results = await storing_graph_repo.search_related("PostgreSQL", owner_id="alice", top_k=10)
+
+    assert results[0].metadata["filename"] == "manual.pdf"
+    assert results[0].metadata["doc_id"] == "alice::manual.pdf"
+
+
 async def test_search_finds_facts_where_the_entity_is_the_target(
     storing_graph_repo: KnowledgeGraphRepo,
 ) -> None:

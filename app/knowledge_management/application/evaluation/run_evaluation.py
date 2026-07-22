@@ -20,6 +20,8 @@ from collections.abc import Sequence
 from dataclasses import asdict
 
 from ...domain.evaluation import EvaluationExample, EvaluationReport
+from ...domain.null_knowledge_graph_repo import NullKnowledgeGraphRepo
+from ...domain.repositories import KnowledgeGraphRepo
 from .dataset import load_examples
 from .evaluate_generation import GenerationEvaluator
 from .evaluate_retrieval import RetrievalEvaluator
@@ -64,6 +66,41 @@ def format_report(report: EvaluationReport) -> str:
     return "\n".join(lines)
 
 
+def format_comparison(
+    baseline: EvaluationReport, candidate: EvaluationReport, candidate_label: str
+) -> str:
+    """Side-by-side retrieval metrics with the delta, for an A/B of two pipelines.
+
+    Only retrieval metrics are compared: they are deterministic, so a difference is caused by
+    the pipeline change rather than by LLM sampling noise. A judge-scored generation delta
+    would need repeated runs to separate signal from variance.
+    """
+    rows = [
+        ("hit_rate@k", "hit_rate"),
+        ("MRR", "mean_reciprocal_rank"),
+        ("precision@k", "mean_precision_at_k"),
+        ("recall@k", "mean_recall_at_k"),
+    ]
+    lines = [
+        f"Retrieval comparison over {baseline.retrieval.example_count} questions",
+        "",
+        f"{'metric':<18}{'vector-only':>13}{candidate_label:>15}{'delta':>10}",
+        "-" * 56,
+    ]
+    for label, attribute in rows:
+        before = getattr(baseline.retrieval, attribute)
+        after = getattr(candidate.retrieval, attribute)
+        lines.append(f"{label:<18}{before:>13.3f}{after:>15.3f}{after - before:>+10.3f}")
+
+    regressed = [
+        label
+        for label, attribute in rows
+        if getattr(candidate.retrieval, attribute) < getattr(baseline.retrieval, attribute)
+    ]
+    lines += ["", f"Regressions: {', '.join(regressed) if regressed else 'none'}"]
+    return "\n".join(lines)
+
+
 def _parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="RAG eval harness (AI-9).")
     parser.add_argument(
@@ -75,6 +112,15 @@ def _parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Owner of the documents retrieval is measured on (per-user isolation).",
     )
     parser.add_argument("--json", dest="json_output", help="Write the full report to a JSON file.")
+    parser.add_argument(
+        "--compare-graph",
+        action="store_true",
+        help=(
+            "Run retrieval twice over the same corpus — vector-only and vector+knowledge-graph"
+            " — and print the metric delta. Requires KNOWLEDGE_GRAPH_PROVIDER to be set to a"
+            " real graph, and that corpus to have been uploaded with the graph enabled."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -96,12 +142,37 @@ async def main(argv: Sequence[str] | None = None) -> None:
     arguments = _parse_arguments(argv)
     examples = load_examples(arguments.dataset or settings.EVAL_DATASET_PATH)
 
-    pipeline = RetrievalPipeline(
-        vector_repo=get_vector_repo(),
-        reranker=RerankerFactory.get_reranker(),
-        candidate_count=settings.RETRIEVAL_CANDIDATE_COUNT,
-        top_k=settings.RETRIEVAL_TOP_K,
-    )
+    def build_pipeline(graph_repo: KnowledgeGraphRepo | None = None) -> RetrievalPipeline:
+        return RetrievalPipeline(
+            vector_repo=get_vector_repo(),
+            reranker=RerankerFactory.get_reranker(),
+            candidate_count=settings.RETRIEVAL_CANDIDATE_COUNT,
+            top_k=settings.RETRIEVAL_TOP_K,
+            graph_repo=graph_repo,
+        )
+
+    if arguments.compare_graph:
+        from app.shared.dependencies import get_graph_repo
+
+        graph_repo = get_graph_repo()
+        if isinstance(graph_repo, NullKnowledgeGraphRepo):
+            raise SystemExit(
+                "--compare-graph needs a real graph: set KNOWLEDGE_GRAPH_PROVIDER=neo4j. "
+                "With the null graph both sides of the comparison would be identical."
+            )
+        # Same corpus, same reranker, same k — the only difference is the extra candidate source.
+        baseline = await build_report(
+            examples, arguments.owner_id, RetrievalEvaluator(build_pipeline())
+        )
+        candidate = await build_report(
+            examples, arguments.owner_id, RetrievalEvaluator(build_pipeline(graph_repo))
+        )
+        print(format_comparison(baseline, candidate, candidate_label="vector+graph"))
+        if arguments.json_output:
+            await asyncio.to_thread(_write_json_report, arguments.json_output, candidate)
+        return
+
+    pipeline = build_pipeline()
     retrieval_evaluator = RetrievalEvaluator(pipeline)
 
     judge = AnswerJudgeFactory.get_judge()
