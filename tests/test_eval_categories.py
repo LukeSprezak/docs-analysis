@@ -5,9 +5,12 @@ overall average over question shapes the graph affects in opposite directions ca
 zero while both halves moved a long way.
 """
 
+import pytest
+
 from app.knowledge_management.application.evaluation.dataset import load_examples, parse_examples
 from app.knowledge_management.application.evaluation.evaluate_retrieval import group_by_category
 from app.knowledge_management.application.evaluation.run_evaluation import (
+    _parse_arguments,
     find_regressions,
     format_comparison,
 )
@@ -142,6 +145,19 @@ def test_no_regressions_when_every_category_improves():
 
     assert find_regressions(baseline, candidate) == {}
     assert "Regressions: none" in format_comparison(baseline, candidate, "vector+graph")
+
+
+def test_fail_on_regression_is_rejected_without_a_comparison_to_run():
+    # Accepting it silently would make a CI gate look active while never actually evaluating
+    # anything — the worst failure mode for a guard.
+    with pytest.raises(SystemExit):
+        _parse_arguments(["--owner-id", "u1", "--fail-on-regression"])
+
+
+def test_fail_on_regression_is_off_by_default():
+    arguments = _parse_arguments(["--owner-id", "u1", "--compare-graph"])
+    assert arguments.fail_on_regression is False
+    assert arguments.compare_graph is True
 
 
 def test_template_golden_set_is_valid_and_covers_both_categories():

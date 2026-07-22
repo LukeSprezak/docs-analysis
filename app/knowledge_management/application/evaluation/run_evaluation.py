@@ -249,8 +249,18 @@ async def main(argv: Sequence[str] | None = None) -> None:
             examples, arguments.owner_id, RetrievalEvaluator(build_pipeline(graph_repo))
         )
         print(format_comparison(baseline, candidate, candidate_label="vector+graph"))
+        # The report is written before the gate fires: a failing run is exactly the one whose
+        # per-question details you want to inspect.
         if arguments.json_output:
             await asyncio.to_thread(_write_json_report, arguments.json_output, candidate)
+        if arguments.fail_on_regression:
+            regressions = find_regressions(baseline, candidate)
+            if regressions:
+                raise SystemExit(
+                    f"FAILED: retrieval regressed in {len(regressions)} "
+                    f"categor{'y' if len(regressions) == 1 else 'ies'} "
+                    f"({', '.join(regressions)}) — see the breakdown above."
+                )
         return
 
     pipeline = build_pipeline()
