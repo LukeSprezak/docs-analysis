@@ -4,18 +4,19 @@ Shape: `(:GraphEntity {name, type, owner_id, doc_ids})-[:RELATES {type, doc_ids}
 
 Two properties carry the weight here:
 
-* **`owner_id` is part of entity identity.** Entities merge on `(owner_id, name)`, never on
-  name alone, so two users writing about "Kubernetes" get two separate nodes. Merging them
-  would silently join one user's facts to another's — the graph equivalent of handing over
-  someone else's documents.
+* **`owner_id` is part of entity identity.** Entities merge on
+  `(owner_id, normalized_name)`, never on the name alone, so two users writing about
+  "Kubernetes" get two separate nodes. Merging them would silently join one user's facts to
+  another's — the graph equivalent of handing over someone else's documents.
 * **`doc_ids` is a list, not a single value.** The same fact usually appears in several
   documents. Deleting one document must retract only that document's claim, so a delete
   removes the id from the list and drops the node or relationship once the list empties.
   Storing one id would make the last delete wipe facts other documents still assert.
 
-Entity names come from an LLM, so the same thing arrives spelled differently ("Postgres" vs
-"PostgreSQL") and lands as two nodes. Resolving that is a separate problem (entity
-resolution) and deliberately out of scope here.
+Entity names come from an LLM, so the same thing arrives spelled differently. Case, spacing
+and trailing punctuation are collapsed by `normalize_entity_name`; genuine synonyms
+("Postgres" vs "PostgreSQL") still land as two nodes — see that module for why the rule stops
+deliberately short of fuzzy matching.
 """
 
 import logging
@@ -24,6 +25,7 @@ from typing import Any
 from langchain_core.runnables.config import run_in_executor
 from langchain_neo4j import Neo4jGraph
 
+from ...domain.entity_normalization import normalize_entity_name
 from ...domain.models import Document, GraphFragment
 from ...domain.repositories import KnowledgeGraphRepo
 
@@ -67,7 +69,7 @@ class Neo4jKnowledgeGraphRepo(KnowledgeGraphRepo):
         )
         self.graph.query(
             f"CREATE INDEX {self.index_name}_owner IF NOT EXISTS "
-            f"FOR (entity:`{self.node_label}`) ON (entity.owner_id, entity.name)"
+            f"FOR (entity:`{self.node_label}`) ON (entity.owner_id, entity.normalized_name)"
         )
 
     async def add_fragment(self, fragment: GraphFragment, owner_id: str) -> None:
@@ -79,12 +81,23 @@ class Neo4jKnowledgeGraphRepo(KnowledgeGraphRepo):
 
         await self._query(
             f"UNWIND $entities AS entity "
-            f"MERGE (node:`{self.node_label}` {{owner_id: $owner_id, name: entity.name}}) "
-            f"SET node.type = entity.type, "
-            f"    node.doc_ids = coalesce(node.doc_ids, []) + "
-            f"        CASE WHEN $doc_id IN coalesce(node.doc_ids, []) THEN [] ELSE [$doc_id] END",
+            # Identity is the normalized name, so "Postgres" and " postgres." land on one node.
+            f"MERGE (node:`{self.node_label}` "
+            f"       {{owner_id: $owner_id, normalized_name: entity.normalized_name}}) "
+            # First spelling wins as the display name, and the type is not rewritten by later
+            # documents — otherwise the citation text would flip depending on upload order.
+            f"ON CREATE SET node.name = entity.name, node.type = entity.type "
+            f"SET node.doc_ids = coalesce(node.doc_ids, []) + "
+            f"    CASE WHEN $doc_id IN coalesce(node.doc_ids, []) THEN [] ELSE [$doc_id] END",
             {
-                "entities": [{"name": e.name, "type": e.type} for e in fragment.entities],
+                "entities": [
+                    {
+                        "name": entity.name,
+                        "normalized_name": normalize_entity_name(entity.name),
+                        "type": entity.type,
+                    }
+                    for entity in fragment.entities
+                ],
                 "owner_id": owner_id,
                 "doc_id": fragment.doc_id,
             },
@@ -94,17 +107,29 @@ class Neo4jKnowledgeGraphRepo(KnowledgeGraphRepo):
             return
         await self._query(
             f"UNWIND $relations AS relation "
+            # Same identity rule as above; the ON CREATE clauses are a safety net for an
+            # endpoint that somehow was not in `fragment.entities`.
             f"MERGE (source:`{self.node_label}` "
-            f"       {{owner_id: $owner_id, name: relation.source}}) "
+            f"       {{owner_id: $owner_id, normalized_name: relation.source_key}}) "
+            f"ON CREATE SET source.name = relation.source, source.type = relation.source_type "
             f"MERGE (target:`{self.node_label}` "
-            f"       {{owner_id: $owner_id, name: relation.target}}) "
+            f"       {{owner_id: $owner_id, normalized_name: relation.target_key}}) "
+            f"ON CREATE SET target.name = relation.target, target.type = relation.target_type "
             f"MERGE (source)-[rel:`{self.relationship_type}` {{type: relation.type}}]->(target) "
             f"SET rel.doc_ids = coalesce(rel.doc_ids, []) + "
             f"    CASE WHEN $doc_id IN coalesce(rel.doc_ids, []) THEN [] ELSE [$doc_id] END",
             {
                 "relations": [
-                    {"source": r.source.name, "target": r.target.name, "type": r.type}
-                    for r in fragment.relations
+                    {
+                        "source": relation.source.name,
+                        "source_key": normalize_entity_name(relation.source.name),
+                        "source_type": relation.source.type,
+                        "target": relation.target.name,
+                        "target_key": normalize_entity_name(relation.target.name),
+                        "target_type": relation.target.type,
+                        "type": relation.type,
+                    }
+                    for relation in fragment.relations
                 ],
                 "owner_id": owner_id,
                 "doc_id": fragment.doc_id,

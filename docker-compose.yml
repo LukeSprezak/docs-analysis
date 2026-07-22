@@ -23,6 +23,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      # Waited on even when KNOWLEDGE_GRAPH_PROVIDER=none: the repository is built lazily on
+      # first use, so without this the failure would not be a clean startup error but a 500 on
+      # whichever request happened to arrive during Neo4j's ~40s boot. The two databases start
+      # in parallel, so the added wait is Neo4j's boot time, not the sum. If you never use the
+      # graph and want the seconds back, put `graph` behind a compose profile.
+      graph:
+        condition: service_healthy
 
   frontend:
     build:

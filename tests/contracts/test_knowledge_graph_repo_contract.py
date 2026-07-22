@@ -191,6 +191,31 @@ async def test_deleting_the_last_document_asserting_a_fact_retracts_it(
     assert await storing_graph_repo.search_related("PostgreSQL", owner_id="u1", top_k=10) == []
 
 
+async def test_spelling_variants_of_an_entity_collapse_into_one_node(
+    storing_graph_repo: KnowledgeGraphRepo,
+) -> None:
+    # Two documents naming the same thing differently must build one entity, not two. If they
+    # split, each document's facts stay in its own island and a traversal reaches half the
+    # corpus — the failure is silent, because both islands look correct on their own.
+    loud = Entity(name="POSTGRES.", type="Database")
+    quiet = Entity(name="postgres", type="Database")
+    await storing_graph_repo.add_fragment(
+        fragment("a.txt", Relation(source=loud, target=PGVECTOR, type="SUPPORTS")), owner_id="u1"
+    )
+    await storing_graph_repo.add_fragment(
+        fragment("b.txt", Relation(source=quiet, target=NEO4J, type="COMPETES_WITH")),
+        owner_id="u1",
+    )
+
+    results = await storing_graph_repo.search_related("postgres", owner_id="u1", top_k=10)
+
+    # Both facts hang off the single merged entity, and it is cited by its first spelling.
+    assert {doc.content for doc in results} == {
+        "POSTGRES. SUPPORTS pgvector",
+        "POSTGRES. COMPETES_WITH Neo4j",
+    }
+
+
 async def test_readding_a_document_replaces_its_previous_facts(
     storing_graph_repo: KnowledgeGraphRepo,
 ) -> None:
