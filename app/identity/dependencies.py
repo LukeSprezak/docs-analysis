@@ -14,39 +14,40 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.identity.application.authenticate_user import AuthenticateUserUseCase
 from app.identity.application.register_user import RegisterUserUseCase
 from app.identity.domain.models import User
-from app.identity.infrastructure.postgres_user_repo import PostgresUserRepo
+from app.identity.domain.repositories import UserRepo
+from app.identity.infrastructure import factory
 from app.identity.security import decode_access_token
 from app.shared.exceptions import AuthenticationException
 
-_user_repo: PostgresUserRepo | None = None
+_user_repo: UserRepo | None = None
 
 # Bearer token from the Authorization header. auto_error=False → we raise a consistent
 # AuthenticationException (401) instead of FastAPI's default HTTPException.
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def get_user_repo() -> PostgresUserRepo:
+def get_user_repo() -> UserRepo:
     global _user_repo
     if _user_repo is None:
-        _user_repo = PostgresUserRepo()
+        _user_repo = factory.create_user_repo()
     return _user_repo
 
 
 def get_register_user_use_case(
-    user_repo: Annotated[PostgresUserRepo, Depends(get_user_repo)],
+    user_repo: Annotated[UserRepo, Depends(get_user_repo)],
 ) -> RegisterUserUseCase:
     return RegisterUserUseCase(user_repo)
 
 
 def get_authenticate_user_use_case(
-    user_repo: Annotated[PostgresUserRepo, Depends(get_user_repo)],
+    user_repo: Annotated[UserRepo, Depends(get_user_repo)],
 ) -> AuthenticateUserUseCase:
     return AuthenticateUserUseCase(user_repo)
 
 
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
-    user_repo: Annotated[PostgresUserRepo, Depends(get_user_repo)],
+    user_repo: Annotated[UserRepo, Depends(get_user_repo)],
 ) -> User:
     """Extracts and verifies the Bearer token, then loads the user. Raises 401 when the
     token is missing/invalid or the user no longer exists. Every protected endpoint injects

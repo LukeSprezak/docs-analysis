@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.shared.enums import (
     EvalJudgeProvider,
     LLMProvider,
+    PersistenceProvider,
     RerankerProvider,
     SearchStrategy,
     VectorStoreProvider,
@@ -21,6 +22,11 @@ class Settings(BaseSettings):
     LLM_PROVIDER: LLMProvider
     VECTOR_STORE_PROVIDER: VectorStoreProvider
     RERANKER_PROVIDER: RerankerProvider
+
+    # Backing store for the domain repositories. The application layer only ever sees the
+    # ABCs from `domain/repositories.py`; this variable is the single place that decides
+    # which adapters get wired in (see `infrastructure/persistence/factory.py`).
+    PERSISTENCE_PROVIDER: PersistenceProvider
 
     # Retrieval: how many chunks to pull from vector search (reranking candidates) and how
     # many to finally pass to the LLM after reordering.

@@ -62,10 +62,46 @@ services:
       retries: 5
       start_period: 10s
 
+  # Graph store. Not yet wired into the application (no PERSISTENCE_PROVIDER=neo4j adapter
+  # exists) — it is here so the contract suites in tests/contracts/ have a server to run
+  # their `integration` parameters against. The browser UI is on :7474, Bolt on :7687.
+  graph:
+    image: neo4j:5-community
+    restart: unless-stopped
+    environment:
+      # NEO4J_AUTH is user/password in one value; the username is fixed to `neo4j` on the
+      # community edition.
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:?NEO4J_PASSWORD is required}
+      # The same secret again under a non-NEO4J_ name, for the healthcheck below. Neo4j 5 maps
+      # every NEO4J_-prefixed variable onto a config setting and refuses to start on an
+      # unrecognized one (strict validation), so a bare NEO4J_PASSWORD would break the server.
+      - GRAPH_PASSWORD=${NEO4J_PASSWORD}
+      # APOC ships the procedures langchain-neo4j relies on for graph writes.
+      - NEO4J_PLUGINS=["apoc"]
+      # Neo4j sizes the JVM heap from the host's total RAM by default, which is far more than
+      # a dev box needs next to Postgres and the API.
+      - NEO4J_server_memory_heap_max__size=512M
+      - NEO4J_server_memory_pagecache_size=256M
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    networks:
+      - backend
+    healthcheck:
+      test:
+        ["CMD-SHELL", "cypher-shell -u neo4j -p $${GRAPH_PASSWORD} 'RETURN 1' >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      # Neo4j boots the JVM and the plugins before it accepts Bolt — slower to start than Postgres.
+      start_period: 40s
+
 networks:
   backend:
     driver: bridge
 
 volumes:
   postgres_data:
+  neo4j_data:
+  neo4j_logs:
   venv_data:

@@ -11,10 +11,8 @@ from app.identity.dependencies import get_current_user
 from app.identity.domain.models import User
 from app.knowledge_management.application.use_cases.delete_document import DeleteDocumentUseCase
 from app.knowledge_management.application.use_cases.upload_document import UploadDocumentUseCase
+from app.knowledge_management.domain.repositories import DocumentRepo
 from app.knowledge_management.infrastructure.pdf.pymupdf_loader import PyMuPDFLoader
-from app.knowledge_management.infrastructure.persistence.postgres_document_repo import (
-    PostgresDocumentRepo,
-)
 from app.shared.config import settings
 from app.shared.dependencies import (
     get_delete_document_use_case,
@@ -113,7 +111,7 @@ async def upload_document(
 
 @router.get("/", response_model=list[DocumentInfo])
 async def list_documents(
-    doc_repo: Annotated[PostgresDocumentRepo, Depends(get_doc_repo)],
+    doc_repo: Annotated[DocumentRepo, Depends(get_doc_repo)],
     current_user: Annotated[User, Depends(get_current_user)],
     limit: Annotated[int, Query(ge=1, le=settings.LIST_MAX_LIMIT)] = settings.LIST_DEFAULT_LIMIT,
     offset: Annotated[int, Query(ge=0)] = 0,
