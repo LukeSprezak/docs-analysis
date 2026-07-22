@@ -1,13 +1,28 @@
 from typing import Any
 
 from ...domain.models import Document
-from ...domain.repositories import DocumentRepo, VectorStoreRepo
+from ...domain.null_entity_extractor import NullEntityExtractor
+from ...domain.null_knowledge_graph_repo import NullKnowledgeGraphRepo
+from ...domain.repositories import (
+    DocumentRepo,
+    EntityExtractor,
+    KnowledgeGraphRepo,
+    VectorStoreRepo,
+)
 
 
 class UploadDocumentUseCase:
-    def __init__(self, doc_repo: DocumentRepo, vector_repo: VectorStoreRepo):
+    def __init__(
+        self,
+        doc_repo: DocumentRepo,
+        vector_repo: VectorStoreRepo,
+        graph_repo: KnowledgeGraphRepo | None = None,
+        entity_extractor: EntityExtractor | None = None,
+    ):
         self.doc_repo = doc_repo
         self.vector_repo = vector_repo
+        self.graph_repo = graph_repo or NullKnowledgeGraphRepo()
+        self.entity_extractor = entity_extractor or NullEntityExtractor()
 
     async def execute(
         self,
@@ -39,4 +54,10 @@ class UploadDocumentUseCase:
         else:
             vector_docs = [document]
         await self.vector_repo.add_documents(vector_docs, owner_id)
+
+        # Feed the knowledge graph from the whole document, not the per-page split: relations
+        # regularly span a page boundary, and the extractor needs the surrounding text to see
+        # them. With no graph configured both calls are no-ops and cost nothing.
+        fragment = await self.entity_extractor.extract(document)
+        await self.graph_repo.add_fragment(fragment, owner_id)
         return document

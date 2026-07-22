@@ -30,10 +30,10 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.runnables.config import run_in_executor
 from langchain_neo4j import Neo4jVector
 
+from ...application.retrieval.rank_fusion import fuse_documents
 from ...domain.models import Document
 from ...domain.repositories import VectorStoreRepo
 from ..text.text_chunker import TextChunker
-from .rank_fusion import fuse_documents
 
 logger = logging.getLogger(__name__)
 

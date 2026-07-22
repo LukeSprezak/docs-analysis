@@ -27,6 +27,8 @@ from app.knowledge_management.application.use_cases.upload_document import Uploa
 from app.knowledge_management.domain.repositories import (
     ConversationRepo,
     DocumentRepo,
+    EntityExtractor,
+    KnowledgeGraphRepo,
     RerankerService,
     SummaryRepo,
     VectorStoreRepo,
@@ -43,6 +45,8 @@ _doc_repo: DocumentRepo | None = None
 _vector_repo: VectorStoreRepo | None = None
 _summary_repo: SummaryRepo | None = None
 _conversation_repo: ConversationRepo | None = None
+_graph_repo: KnowledgeGraphRepo | None = None
+_entity_extractor: EntityExtractor | None = None
 
 
 def get_doc_repo() -> DocumentRepo:
@@ -73,18 +77,36 @@ def get_conversation_repo() -> ConversationRepo:
     return _conversation_repo
 
 
+def get_graph_repo() -> KnowledgeGraphRepo:
+    global _graph_repo
+    if _graph_repo is None:
+        _graph_repo = factory.create_knowledge_graph_repo()
+    return _graph_repo
+
+
+def get_entity_extractor() -> EntityExtractor:
+    global _entity_extractor
+    if _entity_extractor is None:
+        _entity_extractor = factory.create_entity_extractor()
+    return _entity_extractor
+
+
 async def shutdown_repositories() -> None:
     """Releases the repository singletons (called from the application lifespan).
 
-    Only the vector store can own a connection of its own; the record repositories all sit on
-    the shared SQLAlchemy pool, which `dispose_engine()` closes separately. The singletons are
-    cleared as well so a subsequent startup in the same process (tests, an ASGI reload) builds
-    them fresh instead of handing out repos backed by a closed driver.
+    The vector store and the knowledge graph can each own a driver; the record repositories
+    all sit on the shared SQLAlchemy pool, which `dispose_engine()` closes separately. The
+    singletons are cleared as well so a subsequent startup in the same process (tests, an ASGI
+    reload) builds them fresh instead of handing out repos backed by a closed driver.
     """
     global _doc_repo, _vector_repo, _summary_repo, _conversation_repo
+    global _graph_repo, _entity_extractor
     if _vector_repo is not None:
         await _vector_repo.close()
+    if _graph_repo is not None:
+        await _graph_repo.close()
     _doc_repo = _vector_repo = _summary_repo = _conversation_repo = None
+    _graph_repo = _entity_extractor = None
 
 
 def get_summarizer() -> LangChainSummarizer:
@@ -104,8 +126,10 @@ def get_reranker_service() -> RerankerService:
 def get_upload_document_use_case(
     doc_repo: Annotated[DocumentRepo, Depends(get_doc_repo)],
     vector_repo: Annotated[VectorStoreRepo, Depends(get_vector_repo)],
+    graph_repo: Annotated[KnowledgeGraphRepo, Depends(get_graph_repo)],
+    entity_extractor: Annotated[EntityExtractor, Depends(get_entity_extractor)],
 ) -> UploadDocumentUseCase:
-    return UploadDocumentUseCase(doc_repo, vector_repo)
+    return UploadDocumentUseCase(doc_repo, vector_repo, graph_repo, entity_extractor)
 
 
 def get_summarize_docs_use_case(
@@ -120,6 +144,7 @@ def get_ask_question_use_case(
     vector_repo: Annotated[VectorStoreRepo, Depends(get_vector_repo)],
     rag_service: Annotated[LangChainRAGService, Depends(get_rag_service)],
     reranker: Annotated[RerankerService, Depends(get_reranker_service)],
+    graph_repo: Annotated[KnowledgeGraphRepo, Depends(get_graph_repo)],
 ) -> AskQuestionUseCase:
     return AskQuestionUseCase(
         vector_repo,
@@ -127,6 +152,7 @@ def get_ask_question_use_case(
         reranker,
         candidate_count=settings.RETRIEVAL_CANDIDATE_COUNT,
         top_k=settings.RETRIEVAL_TOP_K,
+        graph_repo=graph_repo,
     )
 
 
@@ -135,6 +161,7 @@ def get_chat_with_docs_use_case(
     rag_service: Annotated[LangChainRAGService, Depends(get_rag_service)],
     conversation_repo: Annotated[ConversationRepo, Depends(get_conversation_repo)],
     reranker: Annotated[RerankerService, Depends(get_reranker_service)],
+    graph_repo: Annotated[KnowledgeGraphRepo, Depends(get_graph_repo)],
 ) -> ChatWithDocsUseCase:
     return ChatWithDocsUseCase(
         vector_repo,
@@ -143,14 +170,16 @@ def get_chat_with_docs_use_case(
         reranker,
         candidate_count=settings.RETRIEVAL_CANDIDATE_COUNT,
         top_k=settings.RETRIEVAL_TOP_K,
+        graph_repo=graph_repo,
     )
 
 
 def get_delete_document_use_case(
     doc_repo: Annotated[DocumentRepo, Depends(get_doc_repo)],
     vector_repo: Annotated[VectorStoreRepo, Depends(get_vector_repo)],
+    graph_repo: Annotated[KnowledgeGraphRepo, Depends(get_graph_repo)],
 ) -> DeleteDocumentUseCase:
-    return DeleteDocumentUseCase(doc_repo, vector_repo)
+    return DeleteDocumentUseCase(doc_repo, vector_repo, graph_repo)
 
 
 def get_delete_summary_use_case(

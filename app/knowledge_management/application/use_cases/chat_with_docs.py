@@ -4,12 +4,15 @@ from datetime import datetime
 from typing import Any
 
 from ...domain.models import Answer, ChatMessage, Conversation, Document
+from ...domain.null_knowledge_graph_repo import NullKnowledgeGraphRepo
 from ...domain.repositories import (
     ConversationRepo,
+    KnowledgeGraphRepo,
     RAGService,
     RerankerService,
     VectorStoreRepo,
 )
+from ..retrieval.candidate_retrieval import CandidateRetriever
 
 
 class ChatWithDocsUseCase:
@@ -21,8 +24,10 @@ class ChatWithDocsUseCase:
         reranker: RerankerService,
         candidate_count: int = 20,
         top_k: int = 4,
+        graph_repo: KnowledgeGraphRepo | None = None,
     ):
-        self.vector_repo = vector_repo
+        # See AskQuestionUseCase: the null graph keeps callers that ignore the feature simple.
+        self.retriever = CandidateRetriever(vector_repo, graph_repo or NullKnowledgeGraphRepo())
         self.rag_service = rag_service
         self.conversation_repo = conversation_repo
         self.reranker = reranker
@@ -64,8 +69,8 @@ class ChatWithDocsUseCase:
             if prior_messages
             else message
         )
-        candidates = await self.vector_repo.search(
-            search_query, owner_id, top_k=self.candidate_count
+        candidates = await self.retriever.retrieve(
+            search_query, owner_id, candidate_count=self.candidate_count
         )
         relevant_documents = await self.reranker.rerank(search_query, candidates, top_k=self.top_k)
         return conversation, prior_messages, relevant_documents

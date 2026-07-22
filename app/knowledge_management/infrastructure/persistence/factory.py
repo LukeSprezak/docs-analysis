@@ -13,15 +13,24 @@ a half-working system.
 
 from typing import NamedTuple
 
+from app.knowledge_management.domain.null_entity_extractor import NullEntityExtractor
+from app.knowledge_management.domain.null_knowledge_graph_repo import NullKnowledgeGraphRepo
 from app.knowledge_management.domain.repositories import (
     ConversationRepo,
     DocumentRepo,
+    EntityExtractor,
+    KnowledgeGraphRepo,
     SummaryRepo,
     VectorStoreRepo,
 )
 from app.knowledge_management.infrastructure.llm.embeddings_factory import EmbeddingsFactory
+from app.knowledge_management.infrastructure.llm.entity_extractor import LLMEntityExtractor
+from app.knowledge_management.infrastructure.llm.llm_factory import LLMFactory
 from app.knowledge_management.infrastructure.persistence.faiss_vectorstore_repo import (
     FaissVectorStoreRepo,
+)
+from app.knowledge_management.infrastructure.persistence.neo4j_knowledge_graph_repo import (
+    Neo4jKnowledgeGraphRepo,
 )
 from app.knowledge_management.infrastructure.persistence.neo4j_vectorstore_repo import (
     Neo4jVectorStoreRepo,
@@ -39,7 +48,12 @@ from app.knowledge_management.infrastructure.persistence.postgres_vectorstore_re
     PostgresVectorStoreRepo,
 )
 from app.shared.config import settings
-from app.shared.enums import PersistenceProvider, SearchStrategy, VectorStoreProvider
+from app.shared.enums import (
+    KnowledgeGraphProvider,
+    PersistenceProvider,
+    SearchStrategy,
+    VectorStoreProvider,
+)
 
 
 def create_document_repo() -> DocumentRepo:
@@ -84,6 +98,27 @@ def create_vector_store_repo() -> VectorStoreRepo:
     raise _unsupported("VectorStoreRepo", settings.VECTOR_STORE_PROVIDER)
 
 
+def create_knowledge_graph_repo() -> KnowledgeGraphRepo:
+    if settings.KNOWLEDGE_GRAPH_PROVIDER == KnowledgeGraphProvider.NONE:
+        return NullKnowledgeGraphRepo()
+    if settings.KNOWLEDGE_GRAPH_PROVIDER == KnowledgeGraphProvider.NEO4J:
+        credentials = _neo4j_credentials()
+        return Neo4jKnowledgeGraphRepo(
+            url=credentials.url,
+            username=credentials.username,
+            password=credentials.password,
+            database=credentials.database,
+        )
+    raise _unsupported("KnowledgeGraphRepo", settings.KNOWLEDGE_GRAPH_PROVIDER)
+
+
+def create_entity_extractor() -> EntityExtractor:
+    """Pairs with the graph repository: no graph means no extraction, hence no LLM cost."""
+    if settings.KNOWLEDGE_GRAPH_PROVIDER == KnowledgeGraphProvider.NONE:
+        return NullEntityExtractor()
+    return LLMEntityExtractor(llm=LLMFactory.get_llm())
+
+
 class Neo4jCredentials(NamedTuple):
     url: str
     username: str
@@ -110,7 +145,7 @@ def _neo4j_credentials() -> Neo4jCredentials:
             )
             if not value
         ]
-        raise ValueError(f"VECTOR_STORE_PROVIDER=neo4j requires {', '.join(missing)} to be set")
+        raise ValueError(f"Selecting neo4j requires {', '.join(missing)} to be set")
     return Neo4jCredentials(url, username, password, settings.NEO4J_DATABASE)
 
 

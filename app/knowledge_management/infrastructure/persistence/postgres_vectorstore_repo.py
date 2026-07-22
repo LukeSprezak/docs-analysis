@@ -9,10 +9,10 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.shared.database import db_connection, get_engine
 
+from ...application.retrieval.rank_fusion import fuse_documents
 from ...domain.models import Document
 from ...domain.repositories import VectorStoreRepo
 from ..text.text_chunker import TextChunker
-from .rank_fusion import fuse_documents
 
 logger = logging.getLogger(__name__)
 

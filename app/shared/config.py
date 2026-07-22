@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.shared.enums import (
     EvalJudgeProvider,
+    KnowledgeGraphProvider,
     LLMProvider,
     PersistenceProvider,
     RerankerProvider,
@@ -27,6 +28,10 @@ class Settings(BaseSettings):
     # ABCs from `domain/repositories.py`; this variable is the single place that decides
     # which adapters get wired in (see `infrastructure/persistence/factory.py`).
     PERSISTENCE_PROVIDER: PersistenceProvider
+
+    # Knowledge graph. `none` disables it entirely — no entity extraction on upload (which
+    # costs an LLM call per document) and no graph candidates during retrieval.
+    KNOWLEDGE_GRAPH_PROVIDER: KnowledgeGraphProvider
 
     # Retrieval: how many chunks to pull from vector search (reranking candidates) and how
     # many to finally pass to the LLM after reordering.

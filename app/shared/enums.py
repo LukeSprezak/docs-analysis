@@ -14,6 +14,18 @@ class VectorStoreProvider(StrEnum):
     NEO4J = "neo4j"
 
 
+class KnowledgeGraphProvider(StrEnum):
+    """Backing store for the knowledge graph, independent of where the vectors live.
+
+    `none` is a real choice, not just "unconfigured": it wires in the null repository and the
+    null extractor, so uploads skip the (expensive) entity-extraction LLM call and retrieval
+    stays vector-only — without any branch in the use cases.
+    """
+
+    NONE = "none"
+    NEO4J = "neo4j"
+
+
 class PersistenceProvider(StrEnum):
     """Backing store for the domain repositories (documents, summaries, conversations, users).
 
