@@ -26,18 +26,31 @@ from app.knowledge_management.domain.repositories import VectorStoreRepo
 from app.knowledge_management.infrastructure.persistence.faiss_vectorstore_repo import (
     FaissVectorStoreRepo,
 )
+from app.knowledge_management.infrastructure.persistence.neo4j_vectorstore_repo import (
+    Neo4jVectorStoreRepo,
+)
 from app.knowledge_management.infrastructure.persistence.postgres_vectorstore_repo import (
     PostgresVectorStoreRepo,
 )
 from app.knowledge_management.infrastructure.text.text_chunker import TextChunker
+from app.shared.config import settings
 from app.shared.database import dispose_engine
 
 # A repo builder takes the chunker the test wants (chunk size decides how many fragments a
-# document produces) and returns a ready adapter.
-RepoFactory = Callable[[TextChunker], VectorStoreRepo]
+# document produces) plus whether hybrid retrieval is on, and returns a ready adapter.
+RepoFactory = Callable[[TextChunker, bool], VectorStoreRepo]
 
 # Small, deterministic vectors — no network, stable ordering between runs.
 EMBEDDING_SIZE = 16
+
+# Server-backed adapters read their connection details from the same settings the app uses.
+# The committed .env points at the docker-compose service names, so running these from the
+# host means overriding the hostnames, e.g.
+#   POSTGRES_HOST=localhost POSTGRES_PORT=5433 \
+#   NEO4J_URI=bolt://localhost:7687 pytest -m integration
+NEO4J_TEST_URI = settings.NEO4J_URI or "bolt://localhost:7687"
+NEO4J_TEST_USERNAME = settings.NEO4J_USERNAME or "neo4j"
+NEO4J_TEST_PASSWORD = settings.NEO4J_PASSWORD or ""
 
 
 def _embeddings() -> DeterministicFakeEmbedding:
@@ -46,7 +59,13 @@ def _embeddings() -> DeterministicFakeEmbedding:
 
 @pytest.fixture
 def faiss_factory() -> RepoFactory:
-    return lambda chunker: FaissVectorStoreRepo(embeddings=_embeddings(), chunker=chunker)
+    def build(chunker: TextChunker, enable_hybrid_search: bool) -> VectorStoreRepo:
+        if enable_hybrid_search:
+            # The in-memory store has no keyword index, so it is absent from HYBRID_ADAPTERS.
+            raise NotImplementedError("FAISS does not support hybrid retrieval")
+        return FaissVectorStoreRepo(embeddings=_embeddings(), chunker=chunker)
+
+    return build
 
 
 @pytest.fixture
@@ -60,11 +79,12 @@ async def postgres_factory() -> AsyncIterator[RepoFactory]:
     """
     created: list[PostgresVectorStoreRepo] = []
 
-    def build(chunker: TextChunker) -> VectorStoreRepo:
+    def build(chunker: TextChunker, enable_hybrid_search: bool) -> VectorStoreRepo:
         repo = PostgresVectorStoreRepo(
             embeddings=_embeddings(),
             collection_name=f"contract_test_{uuid.uuid4().hex}",
             chunker=chunker,
+            enable_hybrid_search=enable_hybrid_search,
         )
         created.append(repo)
         return repo
@@ -76,9 +96,44 @@ async def postgres_factory() -> AsyncIterator[RepoFactory]:
     await dispose_engine()
 
 
+@pytest.fixture
+async def neo4j_factory() -> AsyncIterator[RepoFactory]:
+    """Neo4j adapter against a live server, isolated by a per-test node label.
+
+    Neo4j has no notion of a collection, so isolation is the node label: each test writes to
+    its own `:contract_test_<uuid>` label with its own vector index, and teardown deletes
+    both. Sharing one label would leak vectors between tests through the shared index.
+    """
+    created: list[Neo4jVectorStoreRepo] = []
+
+    def build(chunker: TextChunker, enable_hybrid_search: bool) -> VectorStoreRepo:
+        suffix = uuid.uuid4().hex
+        repo = Neo4jVectorStoreRepo(
+            embeddings=_embeddings(),
+            url=NEO4J_TEST_URI,
+            username=NEO4J_TEST_USERNAME,
+            password=NEO4J_TEST_PASSWORD,
+            index_name=f"contract_test_{suffix}",
+            keyword_index_name=f"contract_test_kw_{suffix}",
+            node_label=f"contract_test_{suffix}",
+            chunker=chunker,
+            enable_hybrid_search=enable_hybrid_search,
+        )
+        created.append(repo)
+        return repo
+
+    yield build
+
+    for repo in created:
+        repo.vector_store.query(f"MATCH (n:`{repo.node_label}`) DETACH DELETE n")
+        repo.vector_store.query(f"DROP INDEX {repo.vector_store.index_name} IF EXISTS")
+        await repo.close()
+
+
 ADAPTERS = [
     pytest.param("faiss_factory", id="faiss"),
     pytest.param("postgres_factory", id="postgres", marks=pytest.mark.integration),
+    pytest.param("neo4j_factory", id="neo4j", marks=pytest.mark.integration),
 ]
 
 
@@ -92,13 +147,13 @@ def make_repo(request: pytest.FixtureRequest) -> RepoFactory:
 @pytest.fixture
 def repo(make_repo: RepoFactory) -> VectorStoreRepo:
     """The common case: chunks large enough that one document stays one fragment."""
-    return make_repo(TextChunker(chunk_size=10_000))
+    return make_repo(TextChunker(chunk_size=10_000), False)
 
 
 @pytest.fixture
 def chunking_repo(make_repo: RepoFactory) -> VectorStoreRepo:
     """Small chunks, so a long document is guaranteed to split into several fragments."""
-    return make_repo(TextChunker(chunk_size=100, chunk_overlap=0))
+    return make_repo(TextChunker(chunk_size=100, chunk_overlap=0), False)
 
 
 LONG_TEXT = "A sentence about data structures. " * 50
@@ -202,3 +257,59 @@ async def test_search_isolates_documents_by_owner(repo: VectorStoreRepo) -> None
     alice_results = {doc.id for doc in await repo.search("quicksort", owner_id="alice", top_k=100)}
     assert alice_results == {"secret.pdf"}
     assert "bob.pdf" not in alice_results
+
+
+# --- Hybrid retrieval -------------------------------------------------------------------
+# Only adapters with a keyword index alongside the vectors. The embeddings here are random
+# (deterministic, but semantically meaningless), so a hit on a distinctive rare term is
+# evidence the keyword half of the fusion ran — a vector-only search could not find it.
+
+HYBRID_ADAPTERS = [
+    pytest.param("postgres_factory", id="postgres", marks=pytest.mark.integration),
+    pytest.param("neo4j_factory", id="neo4j", marks=pytest.mark.integration),
+]
+
+RARE_TERM = "zzyzx"
+
+
+@pytest.fixture(params=HYBRID_ADAPTERS)
+def hybrid_repo(request: pytest.FixtureRequest) -> VectorStoreRepo:
+    factory: RepoFactory = request.getfixturevalue(request.param)
+    return factory(TextChunker(chunk_size=10_000), True)
+
+
+async def test_hybrid_search_finds_documents_by_keyword(hybrid_repo: VectorStoreRepo) -> None:
+    await hybrid_repo.add_documents(
+        [Document(id="rare.txt", content=f"The {RARE_TERM} protocol", metadata={})],
+        owner_id="u1",
+    )
+    # Enough noise that a vector-only search cannot plausibly surface the right document in
+    # two slots: the embeddings are random, so this asserts the keyword branch really ran.
+    # (Verified by flipping the fixture to vector-only, where this test fails.)
+    for filler in range(30):
+        await hybrid_repo.add_documents(
+            [Document(id=f"filler{filler}.txt", content=f"unrelated prose {filler}", metadata={})],
+            owner_id="u1",
+        )
+
+    results = await hybrid_repo.search(RARE_TERM, owner_id="u1", top_k=2)
+
+    assert "rare.txt" in {doc.id for doc in results}
+
+
+async def test_hybrid_search_isolates_documents_by_owner(hybrid_repo: VectorStoreRepo) -> None:
+    # The owner filter has to hold on the keyword branch too — that branch is hand-written
+    # SQL/Cypher in both adapters, and a missing WHERE there would leak across users
+    # regardless of how well the vector branch is filtered.
+    await hybrid_repo.add_documents(
+        [Document(id="alice.txt", content=f"alice's {RARE_TERM} notes", metadata={})],
+        owner_id="alice",
+    )
+    await hybrid_repo.add_documents(
+        [Document(id="bob.txt", content=f"bob's {RARE_TERM} notes", metadata={})],
+        owner_id="bob",
+    )
+
+    alice_results = {doc.id for doc in await hybrid_repo.search(RARE_TERM, "alice", top_k=100)}
+
+    assert alice_results == {"alice.txt"}

@@ -65,6 +65,14 @@ class Settings(BaseSettings):
     DB_POOL_SIZE: int
     DB_MAX_OVERFLOW: int
 
+    # Neo4j. Optional for the same reason the provider API keys are: they only have to be set
+    # when Neo4j is the selected provider. The factory checks them then and fails loudly, so a
+    # Postgres-only deployment does not have to carry graph credentials.
+    NEO4J_URI: str | None = None
+    NEO4J_USERNAME: str | None = None
+    NEO4J_PASSWORD: str | None = None
+    NEO4J_DATABASE: str | None = None  # None = the server's default database ("neo4j")
+
     LOG_LEVEL: str
     LOG_FORMAT: str  # TEXT or JSON
     LOG_FILE: str | None = None  # log file path; None = log to stdout only

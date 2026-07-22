@@ -11,6 +11,7 @@ class LLMProvider(StrEnum):
 class VectorStoreProvider(StrEnum):
     POSTGRES = "postgres"
     FAISS = "faiss"
+    NEO4J = "neo4j"
 
 
 class PersistenceProvider(StrEnum):

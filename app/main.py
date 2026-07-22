@@ -1,3 +1,6 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
@@ -12,6 +15,8 @@ from app.knowledge_management.ui.api.routers import (
     translations,
 )
 from app.shared.config import settings
+from app.shared.database import dispose_engine
+from app.shared.dependencies import shutdown_repositories
 from app.shared.exception_handlers import (
     app_exception_handler,
     global_exception_handler,
@@ -24,7 +29,26 @@ from app.shared.rate_limit import limiter
 
 setup_logging()
 
-app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Releases connections on shutdown.
+
+    Repositories go first — an adapter that owns a driver (Neo4j) has to close it itself —
+    and the shared SQLAlchemy pool second, since the record repositories borrow from it.
+    Without this the pool was never disposed: connections stayed open until the process died,
+    which a reloading dev server or a test run does repeatedly.
+    """
+    yield
+    await shutdown_repositories()
+    await dispose_engine()
+
+
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan,
+)
 
 # slowapi reads the limiter off app.state — both the `@limiter.limit(...)` decorators in the
 # routers and SlowAPIMiddleware (which applies RATE_LIMIT_DEFAULT as the global safeguard).

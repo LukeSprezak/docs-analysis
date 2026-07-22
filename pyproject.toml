@@ -27,6 +27,7 @@ dependencies = [
     "bcrypt>=5.0.0",
     "slowapi>=0.1.9",
     "alembic>=1.18.4",
+    "langchain-neo4j>=0.10.0",
 ]
 
 [project.optional-dependencies]
@@ -92,6 +93,10 @@ filterwarnings = [
     # PyMuPDF's SWIG bindings on Python 3.12 — raised while importing the C extension.
     "ignore:builtin type Swig(PyPacked|PyObject) has no __module__ attribute:DeprecationWarning",
     "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
+    # langchain-neo4j warns on every search that the returned 'id' field will become
+    # 'elementId'. We never read that field (the parent document id comes from the chunk
+    # metadata), and the warning is raised inside the library on a code path we do not control.
+    "ignore:The default returned 'id' field in the search results will be removed:DeprecationWarning",
 ]
 
 [tool.mypy]

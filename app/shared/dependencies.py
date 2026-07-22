@@ -73,6 +73,20 @@ def get_conversation_repo() -> ConversationRepo:
     return _conversation_repo
 
 
+async def shutdown_repositories() -> None:
+    """Releases the repository singletons (called from the application lifespan).
+
+    Only the vector store can own a connection of its own; the record repositories all sit on
+    the shared SQLAlchemy pool, which `dispose_engine()` closes separately. The singletons are
+    cleared as well so a subsequent startup in the same process (tests, an ASGI reload) builds
+    them fresh instead of handing out repos backed by a closed driver.
+    """
+    global _doc_repo, _vector_repo, _summary_repo, _conversation_repo
+    if _vector_repo is not None:
+        await _vector_repo.close()
+    _doc_repo = _vector_repo = _summary_repo = _conversation_repo = None
+
+
 def get_summarizer() -> LangChainSummarizer:
     llm = LLMFactory.get_llm()
     return LangChainSummarizer(llm=llm)
