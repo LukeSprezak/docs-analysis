@@ -3,12 +3,8 @@ import os
 from app.shared.config import settings
 from app.shared.exceptions import ValidationException
 
-# The PDF file header per the specification ("%PDF-1.x"). We check it instead of trusting
-# the extension alone or the content-type declared by the client.
 PDF_MAGIC_BYTES = b"%PDF-"
 
-# How many leading bytes we scan for the PDF header. Some files carry a little junk or
-# whitespace before it (readers tolerate that) — we allow a margin, but a bounded one.
 PDF_HEADER_SCAN_BYTES = 1024
 
 

@@ -6,18 +6,16 @@ from app.shared.postgres_repo import BasePostgresRepo
 
 
 class PostgresUserRepo(BasePostgresRepo, UserRepo):
-    # Schema managed by Alembic (migrations/); connections come from the shared async pool
-    # via BasePostgresRepo (not a per-call `psycopg.connect`).
 
     async def get_by_email(self, email: str) -> User | None:
-        row = await self._fetch_one_row(
+        row = await _fetch_one_row(
             "SELECT id, email, hashed_password, created_at FROM users WHERE email = :email",
             {"email": email},
         )
         return self._row_to_user(row)
 
     async def get_by_id(self, user_id: str) -> User | None:
-        row = await self._fetch_one_row(
+        row = await _fetch_one_row(
             "SELECT id, email, hashed_password, created_at FROM users WHERE id = :user_id",
             {"user_id": user_id},
         )
@@ -31,7 +29,7 @@ class PostgresUserRepo(BasePostgresRepo, UserRepo):
         carrying somebody else's id would rewrite their credentials and hand over the
         account; with it the statement simply does nothing.
         """
-        await self._execute_statement(
+        await _execute_statement(
             """
             INSERT INTO users (id, email, hashed_password)
             VALUES (:id, :email, :hashed_password)

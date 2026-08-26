@@ -14,9 +14,6 @@ from slowapi.util import get_remote_address
 
 from app.shared.config import settings
 
-# headers_enabled is deliberately False: injecting X-RateLimit-* headers would require a
-# `response: Response` parameter on every protected endpoint. The limit works without them,
-# and exceeding it returns a consistent 429 error (rate_limit_exceeded_handler).
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[settings.RATE_LIMIT_DEFAULT],

@@ -20,7 +20,7 @@ class PostgresDocumentRepo(BasePostgresRepo, DocumentRepo):
         caller's to write. `owner_id` is deliberately absent from the `SET` list: ownership
         is never reassigned by a save.
         """
-        await self._execute_statement(
+        await _execute_statement(
             """
             INSERT INTO documents (id, content, metadata, owner_id)
             VALUES (:id, :content, :metadata, :owner_id)
@@ -38,14 +38,14 @@ class PostgresDocumentRepo(BasePostgresRepo, DocumentRepo):
         )
 
     async def get_by_id(self, doc_id: str, owner_id: str) -> Document | None:
-        row = await self._fetch_one_row(
+        row = await _fetch_one_row(
             "SELECT id, content, metadata FROM documents WHERE id = :id AND owner_id = :owner_id",
             {"id": doc_id, "owner_id": owner_id},
         )
         return self._row_to_document(row) if row else None
 
     async def list_all(self, owner_id: str, limit: int = 50, offset: int = 0) -> list[Document]:
-        rows = await self._fetch_all_rows(
+        rows = await _fetch_all_rows(
             "SELECT id, content, metadata FROM documents "
             "WHERE owner_id = :owner_id ORDER BY created_at DESC "
             "LIMIT :limit OFFSET :offset",
@@ -54,7 +54,7 @@ class PostgresDocumentRepo(BasePostgresRepo, DocumentRepo):
         return [self._row_to_document(row) for row in rows]
 
     async def delete(self, doc_id: str, owner_id: str) -> None:
-        await self._execute_statement(
+        await _execute_statement(
             "DELETE FROM documents WHERE id = :id AND owner_id = :owner_id",
             {"id": doc_id, "owner_id": owner_id},
         )

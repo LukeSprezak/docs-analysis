@@ -12,7 +12,7 @@ class PostgresSummaryRepo(BasePostgresRepo, SummaryRepo):
     # via BasePostgresRepo (not a per-call `psycopg.connect`).
 
     async def save(self, summary: Summary, owner_id: str) -> str:
-        row = await self._fetch_one_row(
+        row = await _fetch_one_row(
             "INSERT INTO summaries (text, document_ids, owner_id) "
             "VALUES (:text, :document_ids, :owner_id) RETURNING id, created_at",
             {
@@ -29,7 +29,7 @@ class PostgresSummaryRepo(BasePostgresRepo, SummaryRepo):
         return summary_id
 
     async def get_by_id(self, summary_id: str, owner_id: str) -> Summary | None:
-        row = await self._fetch_one_row(
+        row = await _fetch_one_row(
             "SELECT text, document_ids, id, created_at FROM summaries "
             "WHERE id = :id AND owner_id = :owner_id",
             {"id": summary_id, "owner_id": owner_id},
@@ -37,7 +37,7 @@ class PostgresSummaryRepo(BasePostgresRepo, SummaryRepo):
         return self._row_to_summary(row) if row else None
 
     async def list_all(self, owner_id: str, limit: int = 50, offset: int = 0) -> list[Summary]:
-        rows = await self._fetch_all_rows(
+        rows = await _fetch_all_rows(
             "SELECT text, document_ids, id, created_at FROM summaries "
             "WHERE owner_id = :owner_id ORDER BY created_at DESC "
             "LIMIT :limit OFFSET :offset",
@@ -46,7 +46,7 @@ class PostgresSummaryRepo(BasePostgresRepo, SummaryRepo):
         return [self._row_to_summary(row) for row in rows]
 
     async def delete(self, summary_id: str, owner_id: str) -> None:
-        await self._execute_statement(
+        await _execute_statement(
             "DELETE FROM summaries WHERE id = :id AND owner_id = :owner_id",
             {"id": summary_id, "owner_id": owner_id},
         )

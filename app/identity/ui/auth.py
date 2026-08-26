@@ -16,9 +16,6 @@ from app.shared.rate_limit import limiter
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-# bcrypt hashes at most 72 bytes of the password and ignores the rest, so a longer one is
-# not a stronger one. Bcrypt 5 raises on it instead of truncating silently — which, without
-# this limit, surfaces as a 500 on a perfectly ordinary password from a password manager.
 MAX_PASSWORD_BYTES = 72
 
 MIN_PASSWORD_LENGTH = 8
@@ -67,8 +64,7 @@ async def register(
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit(settings.RATE_LIMIT_AUTH)
 async def login(
-    request: Request,
-    command: LoginCommand,
+        command: LoginCommand,
     use_case: Annotated[AuthenticateUserUseCase, Depends(get_authenticate_user_use_case)],
 ) -> TokenResponse:
     user = await use_case.execute(command.email, command.password)

@@ -12,11 +12,6 @@ from app.shared.enums import (
 
 
 class Settings(BaseSettings):
-    # Every value comes from the environment (.env or process variables). Fields without a
-    # default are REQUIRED — a missing variable raises a validation error at startup
-    # (fail fast) instead of quietly using a fallback baked into the code.
-    # The exceptions are the provider API keys and LOG_FILE: they stay optional (None =
-    # not configured), because only the key of the provider actually in use is set.
     PROJECT_NAME: str
     API_V1_STR: str
 
@@ -24,22 +19,13 @@ class Settings(BaseSettings):
     VECTOR_STORE_PROVIDER: VectorStoreProvider
     RERANKER_PROVIDER: RerankerProvider
 
-    # Backing store for the domain repositories. The application layer only ever sees the
-    # ABCs from `domain/repositories.py`; this variable is the single place that decides
-    # which adapters get wired in (see `infrastructure/persistence/factory.py`).
     PERSISTENCE_PROVIDER: PersistenceProvider
 
-    # Knowledge graph. `none` disables it entirely — no entity extraction on upload (which
-    # costs an LLM call per document) and no graph candidates during retrieval.
     KNOWLEDGE_GRAPH_PROVIDER: KnowledgeGraphProvider
 
-    # Retrieval: how many chunks to pull from vector search (reranking candidates) and how
-    # many to finally pass to the LLM after reordering.
     RETRIEVAL_CANDIDATE_COUNT: int
     RETRIEVAL_TOP_K: int
 
-    # Candidate search strategy: vector or hybrid (vectors + Postgres FTS, combined with
-    # RRF). Hybrid only works with VECTOR_STORE_PROVIDER=postgres.
     RETRIEVAL_STRATEGY: SearchStrategy
 
     OPENAI_API_KEY: str | None = None
@@ -65,14 +51,9 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str
     POSTGRES_PORT: int
 
-    # Connection pool (SQLAlchemy async engine). pool_size = permanent connections kept open,
-    # max_overflow = how many extra may be opened under peak load.
     DB_POOL_SIZE: int
     DB_MAX_OVERFLOW: int
 
-    # Neo4j. Optional for the same reason the provider API keys are: they only have to be set
-    # when Neo4j is the selected provider. The factory checks them then and fails loudly, so a
-    # Postgres-only deployment does not have to carry graph credentials.
     NEO4J_URI: str | None = None
     NEO4J_USERNAME: str | None = None
     NEO4J_PASSWORD: str | None = None
@@ -84,20 +65,11 @@ class Settings(BaseSettings):
 
     MAX_UPLOAD_SIZE_MB: int
 
-    # Upload validation: allowlist of extensions (comma-separated, with a dot). A file outside
-    # the list is rejected before anything is written. For PDFs we additionally check the
-    # `%PDF-` header (magic bytes) — the extension and declared content-type are controlled by
-    # the client and are not trusted.
     ALLOWED_UPLOAD_EXTENSIONS: str
 
-    # List pagination (documents/summaries/conversations): default and maximum page size.
-    # Without a limit `list_all` pulled every row belonging to the owner — a risk on a large
-    # database (memory + query time).
     LIST_DEFAULT_LIMIT: int
     LIST_MAX_LIMIT: int
 
-    # CORS: comma-separated list of origins the browser may send credentialed requests from.
-    # NEVER "*" together with allow_credentials (an invalid and dangerous combination).
     CORS_ALLOWED_ORIGINS: str
 
     # Rate limiting (slowapi, per IP). Guards against DoS and runaway LLM costs. Disabled in
@@ -109,8 +81,6 @@ class Settings(BaseSettings):
     RATE_LIMIT_UPLOAD: str  # upload — parsing + embedding are costly
     RATE_LIMIT_AUTH: str  # login/register — anti brute force
 
-    # Authentication (JWT). The SECRET MUST be set via env — long (>=32 bytes) and random in
-    # production. A missing variable stops the application from starting.
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int

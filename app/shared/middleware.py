@@ -12,17 +12,14 @@ logger = logging.getLogger("app.middleware")
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        # Generate or get request ID from headers
         request_id = request.headers.get("X-Request-ID", generate_request_id())
 
-        # Set request ID in context
         set_request_id(request_id)
 
         start_time = time.time()
 
         logger.info(f"Started {request.method} {request.url.path}")
 
-        # Process the request
         try:
             response = await call_next(request)
             process_time = time.time() - start_time
@@ -32,7 +29,6 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 f"status={response.status_code} duration={process_time:.3f}s"
             )
 
-            # Add request ID to response headers
             response.headers["X-Request-ID"] = request_id
             return response
         except Exception as e:
