@@ -9,21 +9,12 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.shared.database import db_connection, get_engine
 
-from ...application.retrieval.rank_fusion import fuse_documents
+from ...application.retrieval.rank_fusion import fuse_documents, retrieval_key
 from ...domain.models import Document
 from ...domain.repositories import VectorStoreRepo
 from ..text.text_chunker import TextChunker
 
 logger = logging.getLogger(__name__)
-
-
-def _chunk_key(document: Document) -> str:
-    """Chunk identity across rankings (vector vs keyword) for the RRF fusion.
-
-    Rebuilds the chunk id from the metadata (``"{doc_id}::{chunk_index}"``) so the same
-    chunk found by both methods counts once instead of being duplicated.
-    """
-    return f"{document.metadata.get('doc_id')}::{document.metadata.get('chunk_index')}"
 
 
 class PostgresVectorStoreRepo(VectorStoreRepo):
@@ -39,9 +30,6 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         self.chunker = chunker or TextChunker()
         self.enable_hybrid_search = enable_hybrid_search
 
-        # Shared async engine (the same pool as the other repos). async_mode=True → we use the
-        # a* methods (aadd_documents/asimilarity_search/adelete) without blocking the event
-        # loop. The 'vector' extension is created by an Alembic migration, so create_extension=False.
         self.vector_store = PGVector(
             connection=get_engine(),
             embeddings=self.embeddings,
@@ -52,8 +40,6 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         )
 
     async def add_documents(self, documents: list[Document], owner_id: str) -> None:
-        # Stamp the owner onto every document BEFORE chunking — chunks inherit the metadata,
-        # so owner_id lands on every vector and lets retrieval be filtered per user.
         owned_documents = [
             Document(
                 id=document.id,
@@ -112,7 +98,7 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         """
         vector_documents = await self._vector_search(query, owner_id, top_k)
         keyword_documents = await self._keyword_search(query, owner_id, top_k)
-        return fuse_documents([vector_documents, keyword_documents], top_k=top_k, key_of=_chunk_key)
+        return fuse_documents([vector_documents, keyword_documents], top_k=top_k, key_of=retrieval_key)
 
     async def _keyword_search(self, query: str, owner_id: str, top_k: int) -> list[Document]:
         """Full-text search over chunk content (Postgres FTS, ranked with ts_rank).

@@ -12,21 +12,7 @@ the second case has to work correctly regardless.
 
 from ...domain.models import Document
 from ...domain.repositories import KnowledgeGraphRepo, VectorStoreRepo
-from .rank_fusion import fuse_documents
-
-
-def retrieval_key(document: Document) -> str:
-    """Identity of a candidate across rankings, for deduplication during fusion.
-
-    Vector hits are chunks and identify as `doc_id::chunk_index`. Graph hits are statements
-    built from a triple, with no chunk to point at, so they fall back to their text — two
-    identical statements are the same fact regardless of which entity lookup surfaced them.
-    """
-    doc_id = document.metadata.get("doc_id")
-    chunk_index = document.metadata.get("chunk_index")
-    if doc_id is not None and chunk_index is not None:
-        return f"{doc_id}::{chunk_index}"
-    return f"{document.id}::{document.content}"
+from .rank_fusion import fuse_documents, retrieval_key
 
 
 class CandidateRetriever:

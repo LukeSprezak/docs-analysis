@@ -1,7 +1,12 @@
 """Reciprocal Rank Fusion (RRF) — combining several rankings into one.
 
 Pure, deterministic and network-free (testable offline). Used by hybrid search to merge the
-results of vector and full-text search (BM25/FTS).
+results of vector and full-text search (BM25/FTS), and by candidate retrieval to merge those
+passages with the facts from the knowledge graph.
+
+`retrieval_key` lives here too: fusion is the only reason document identity has to be pinned
+down, and one definition shared by every caller is what keeps two rankings from disagreeing
+about what "the same document" means.
 """
 
 from collections.abc import Callable, Sequence
@@ -11,6 +16,22 @@ from ...domain.models import Document
 # The smoothing constant from the original RRF paper. It dampens the weight of top
 # positions, so a document relevant in both rankings beats one that is great in only one.
 DEFAULT_RRF_SMOOTHING_CONSTANT = 60
+
+
+def retrieval_key(document: Document) -> str:
+    """Identity of a candidate across rankings, for deduplication during fusion.
+
+    Vector and keyword hits are chunks and identify as `doc_id::chunk_index`. Graph hits are
+    statements built from a triple, with no chunk to point at, so they fall back to their text
+    — two identical statements are the same fact regardless of which entity lookup surfaced
+    them. The fallback is what keeps every metadata-less document from collapsing onto one
+    shared key and silently deduplicating unrelated results down to a single hit.
+    """
+    doc_id = document.metadata.get("doc_id")
+    chunk_index = document.metadata.get("chunk_index")
+    if doc_id is not None and chunk_index is not None:
+        return f"{doc_id}::{chunk_index}"
+    return f"{document.id}::{document.content}"
 
 
 def reciprocal_rank_fusion(

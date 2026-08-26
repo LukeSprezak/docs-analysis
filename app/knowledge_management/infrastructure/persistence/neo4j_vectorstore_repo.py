@@ -30,17 +30,12 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.runnables.config import run_in_executor
 from langchain_neo4j import Neo4jVector
 
-from ...application.retrieval.rank_fusion import fuse_documents
+from ...application.retrieval.rank_fusion import fuse_documents, retrieval_key
 from ...domain.models import Document
 from ...domain.repositories import VectorStoreRepo
 from ..text.text_chunker import TextChunker
 
 logger = logging.getLogger(__name__)
-
-
-def _chunk_key(document: Document) -> str:
-    """Chunk identity across rankings (vector vs keyword) for the RRF fusion."""
-    return f"{document.metadata.get('doc_id')}::{document.metadata.get('chunk_index')}"
 
 
 class Neo4jVectorStoreRepo(VectorStoreRepo):
@@ -84,8 +79,6 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
                 self.vector_store.create_new_keyword_index([text_property])
 
     async def add_documents(self, documents: list[Document], owner_id: str) -> None:
-        # Stamp the owner onto every document BEFORE chunking — chunks inherit the metadata,
-        # so owner_id lands on every node and lets retrieval be filtered per user.
         owned_documents = [
             Document(
                 id=document.id,
@@ -95,8 +88,6 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
             for document in documents
         ]
 
-        # Re-upload: drop the document's existing chunks BEFORE inserting the new ones, or a
-        # shorter new version leaves the old high-index chunks orphaned in the graph.
         for document_id in {document.id for document in owned_documents}:
             await self.delete_by_document_id(document_id, owner_id)
 
@@ -125,7 +116,7 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
         """Combines vector and full-text hits (Neo4j full-text index) via RRF."""
         vector_documents = await self._vector_search(query, owner_id, top_k)
         keyword_documents = await self._keyword_search(query, owner_id, top_k)
-        return fuse_documents([vector_documents, keyword_documents], top_k=top_k, key_of=_chunk_key)
+        return fuse_documents([vector_documents, keyword_documents], top_k=top_k, key_of=retrieval_key)
 
     async def _keyword_search(self, query: str, owner_id: str, top_k: int) -> list[Document]:
         """Full-text search over chunk text, ranked by Lucene score and scoped to the owner.
@@ -153,8 +144,6 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
         return [self._to_document(row["text"], row["metadata"]) for row in rows]
 
     async def delete_by_document_id(self, doc_id: str, owner_id: str) -> None:
-        # Both properties are matched: doc_id alone is already namespaced per user, and
-        # pinning owner_id as well keeps the guarantee local to this query.
         await self._query(
             f"MATCH (chunk:`{self.node_label}`) "
             "WHERE chunk.doc_id = $doc_id AND chunk.owner_id = $owner_id "
