@@ -21,6 +21,8 @@ tests
 # Docker
 docker-compose*.yml
 docker/
+# ...except the entrypoint, which the image runs (migrations before the server starts).
+!docker/api/entrypoint.sh
 # IDE
 .vscode
 .idea
