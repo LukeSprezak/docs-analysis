@@ -20,6 +20,9 @@ yarn-error.log*
 client/node_modules/
 client/build/
 
+client/.yarn/
+client/.pnp.*
+
 # IDE
 .idea/
 .vscode/

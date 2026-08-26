@@ -14,21 +14,38 @@ React SPA for the Docs Analysis tool. Migrated from Create React App to **Vite +
 | Markdown | react-markdown 10 + remark-gfm 4 | pure ESM |
 | Toasts | react-hot-toast | 2.x |
 
-Package manager is **npm** (`package-lock.json` is the lockfile — there is no yarn.lock).
+Package manager is **Yarn 4** (`yarn.lock`, `__metadata.version: 10` — there is no package-lock.json).
+
+The version is pinned to the project, not to your machine — via **corepack**:
+
+- `package.json` → `"packageManager": "yarn@4.18.0"` — the single source of truth
+- `.yarnrc.yml` → `nodeLinker: node-modules` (no `yarnPath`; the binary is not vendored)
+- `.yarn/` is **git-ignored in full** — it only ever holds per-machine build state
+
+Corepack reads `packageManager` and fetches that exact yarn on first use, so everyone gets 4.18.0 without anything binary in the repo.
+
+**First-time setup:** corepack is no longer bundled with Node (dropped from the distribution in Node 25), so install it once: `npm install -g corepack && corepack enable`. Then `yarn` inside `client/` resolves to 4.18.0 by itself. Do not `npm install -g yarn` — a global yarn 1 shadows the corepack shim.
+
+`nodeLinker: node-modules` is deliberate — it keeps a real `node_modules/` instead of Yarn's default Plug'n'Play, which Vite and `tsc` are happier with. Do not remove it without testing the build.
+
+To upgrade yarn: `corepack use yarn@<version>`, then commit the changed `packageManager` field and `yarn.lock`.
 
 ## Commands
 
 Run from `client/`:
 
 ```bash
-npm install        # install deps
-npm run dev        # dev server (Vite) on http://localhost:3000
-npm run build      # tsc --noEmit && vite build  → output in dist/
-npm run preview    # serve the production build locally
-npm run typecheck  # tsc --noEmit only
+yarn install              # install deps
+yarn install --immutable  # fail instead of rewriting yarn.lock (CI / Docker)
+yarn dev                  # dev server (Vite) on http://localhost:3000
+yarn build                # tsc --noEmit && vite build  → output in dist/
+yarn preview              # serve the production build locally
+yarn typecheck            # tsc --noEmit only
 ```
 
-Docker (from repo root): `docker compose up --build -d frontend`. The image build runs `npm ci && npm run build`; the prod stage serves `dist/` via Caddy (`docker/caddy/Caddyfile`, which also handles SPA fallback and `/api` proxying).
+Yarn 4 renamed some classic commands: `--frozen-lockfile` → `--immutable`, `yarn audit` → `yarn npm audit`, `yarn create X` → `yarn dlx create-X`. `yarn add` / `yarn remove` / script shortcuts are unchanged.
+
+Docker (from repo root): `docker compose up --build -d frontend`. The image enables corepack, copies `.yarnrc.yml` alongside the manifest, then runs `yarn install --immutable && yarn build`; the prod stage serves `dist/` via Caddy (`docker/caddy/Caddyfile`, which also handles SPA fallback and `/api` proxying).
 
 ## Project layout (`src/`)
 

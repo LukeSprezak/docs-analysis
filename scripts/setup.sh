@@ -27,10 +27,15 @@ fi
 echo "Installing frontend dependencies..."
 if [ -d "client" ]; then
     cd client
-    if command -v npm &> /dev/null; then
-        npm install
+    export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+    if command -v corepack &> /dev/null; then
+        corepack enable
+        yarn install
+    elif command -v yarn &> /dev/null; then
+        echo "Warning: corepack not found — falling back to the yarn on PATH, which may not be the pinned 4.x."
+        yarn install
     else
-        echo "Warning: npm is not installed. Please install Node.js and npm to manage frontend dependencies locally."
+        echo "Warning: no package manager found. Install Node.js, then: npm install -g corepack && corepack enable"
     fi
     cd ..
 else

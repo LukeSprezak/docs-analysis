@@ -57,18 +57,6 @@ const authHeader = (): Record<string, string> => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-const authedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
-  const response = await fetch(url, {
-    ...options,
-    headers: { ...(options.headers || {}), ...authHeader() },
-  });
-  if (response.status === 401) {
-    handleUnauthorized();
-    throw new Error('UNAUTHORIZED');
-  }
-  return response;
-};
-
 const extractErrorCode = async (response: Response): Promise<string> => {
   try {
     const data = await response.json();
@@ -78,6 +66,26 @@ const extractErrorCode = async (response: Response): Promise<string> => {
   }
 };
 
+const ensureOk = async (response: Response): Promise<Response> => {
+  if (!response.ok) {
+    throw new Error(await extractErrorCode(response));
+  }
+  return response;
+};
+
+const authedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const response = await fetch(url, {
+    ...options,
+    headers: { ...(options.headers || {}), ...authHeader() },
+  });
+
+  if (response.status === 401) {
+    handleUnauthorized();
+    throw new Error('UNAUTHORIZED');
+  }
+  return ensureOk(response);
+};
+
 export const api = {
   register: async (email: string, password: string): Promise<AuthResponse> => {
     const response = await fetch(`${API_BASE_URL}/auth/register`, {
@@ -85,10 +93,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    if (!response.ok) {
-      throw new Error(await extractErrorCode(response));
-    }
-    return response.json();
+    return (await ensureOk(response)).json();
   },
   login: async (email: string, password: string): Promise<AuthResponse> => {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -96,10 +101,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    if (!response.ok) {
-      throw new Error(await extractErrorCode(response));
-    }
-    return response.json();
+    return (await ensureOk(response)).json();
   },
   uploadDocument: async (file: File, onProgress?: (percent: number) => void): Promise<any> => {
     return new Promise((resolve, reject) => {
@@ -220,11 +222,11 @@ export const api = {
     return response.json();
   },
   getConversation: async (id: string): Promise<ConversationInfo> => {
-    const response = await authedFetch(`${API_BASE_URL}/chat/conversations/${id}`);
+    const response = await authedFetch(`${API_BASE_URL}/chat/conversations/${encodeURIComponent(id)}`);
     return response.json();
   },
   deleteConversation: async (id: string): Promise<void> => {
-    await authedFetch(`${API_BASE_URL}/chat/conversations/${id}`, { method: 'DELETE' });
+    await authedFetch(`${API_BASE_URL}/chat/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
   askQuestion: async (question: string) => {
     const response = await authedFetch(`${API_BASE_URL}/qa/ask`, {
@@ -254,7 +256,7 @@ export const api = {
     await authedFetch(`${API_BASE_URL}/summarize/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
   getTranslations: async (lang: string): Promise<Record<string, string>> => {
-    const response = await fetch(`${API_BASE_URL}/translations/${lang}`);
-    return response.json();
+    const response = await fetch(`${API_BASE_URL}/translations/${encodeURIComponent(lang)}`);
+    return (await ensureOk(response)).json();
   },
 };
