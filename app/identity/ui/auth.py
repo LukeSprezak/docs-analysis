@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.identity.application.authenticate_user import AuthenticateUserUseCase
 from app.identity.application.register_user import RegisterUserUseCase
@@ -16,9 +16,25 @@ from app.shared.rate_limit import limiter
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+# bcrypt hashes at most 72 bytes of the password and ignores the rest, so a longer one is
+# not a stronger one. Bcrypt 5 raises on it instead of truncating silently — which, without
+# this limit, surfaces as a 500 on a perfectly ordinary password from a password manager.
+MAX_PASSWORD_BYTES = 72
+
+MIN_PASSWORD_LENGTH = 8
+
+
 class RegisterCommand(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=MIN_PASSWORD_LENGTH)
+
+    @field_validator("password")
+    @classmethod
+    def _fits_bcrypt(cls, value: str) -> str:
+        # Counted in bytes, not characters: 72 Polish characters are ~144 bytes in UTF-8.
+        if len(value.encode("utf-8")) > MAX_PASSWORD_BYTES:
+            raise ValueError(f"password must be at most {MAX_PASSWORD_BYTES} bytes long")
+        return value
 
 
 class LoginCommand(BaseModel):
