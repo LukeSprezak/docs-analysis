@@ -111,11 +111,11 @@ const SummarizerTab: React.FC = () => {
     confirmDelete(t, async () => {
       try {
         await api.deleteDocument(id);
-        toast.success(t('summarizer.delete_doc_success') || 'Dokument usunięty');
+        toast.success(t('summarizer.delete_doc_success'));
         await fetchDocuments();
         setSelectedDocs(prev => prev.filter(d => d !== id));
       } catch (error) {
-        toast.error(t('summarizer.delete_doc_error') || 'Błąd podczas usuwania');
+        toast.error(t('summarizer.delete_doc_error'));
       }
     });
   };
@@ -126,14 +126,14 @@ const SummarizerTab: React.FC = () => {
     confirmDelete(t, async () => {
       try {
         await api.deleteSummary(id);
-        toast.success(t('summarizer.delete_summary_success') || 'Podsumowanie usunięte');
+        toast.success(t('summarizer.delete_summary_success'));
         await fetchSummaries();
         const summaryToDelete = summaries.find(s => s.id === id);
         if (summaryToDelete && summary === summaryToDelete.summary) {
           setSummary('');
         }
       } catch (error) {
-        toast.error(t('summarizer.delete_summary_error') || 'Błąd podczas usuwania');
+        toast.error(t('summarizer.delete_summary_error'));
       }
     });
   };

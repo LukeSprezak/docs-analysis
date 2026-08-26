@@ -78,7 +78,11 @@ async def upload_document(
     if extension == ".pdf":
         try:
             loader = PyMuPDFLoader()
-            pages = loader.load_pdf(file_path)
+            # Parsing is synchronous and CPU-bound (PyMuPDF's C extension) — in a threadpool
+            # for the same reason as the write above, and a more pressing one: a large PDF
+            # takes seconds, during which the process would answer nothing at all, /health
+            # included.
+            pages = await run_in_threadpool(loader.load_pdf, file_path)
             if not pages:
                 raise ValidationException("Could not extract text from PDF")
             # The full content (for listing/summaries); splitting pages for retrieval

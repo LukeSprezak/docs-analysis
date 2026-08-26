@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
 from app.identity.dependencies import get_current_user
@@ -14,6 +14,7 @@ from app.shared.dependencies import (
     get_summarize_docs_use_case,
     get_summary_repo,
 )
+from app.shared.rate_limit import limiter
 
 router = APIRouter(prefix="/summarize", tags=["summarize"])
 
@@ -30,12 +31,14 @@ class SummarizeResponse(BaseModel):
 
 
 @router.post("/", response_model=SummarizeResponse)
+@limiter.limit(settings.RATE_LIMIT_LLM)
 async def summarize_docs(
-    request: SummarizeRequest,
+    request: Request,
+    summarize_request: SummarizeRequest,
     use_case: Annotated[SummarizeDocsUseCase, Depends(get_summarize_docs_use_case)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> SummarizeResponse:
-    result = await use_case.execute(request.document_ids, current_user.id)
+    result = await use_case.execute(summarize_request.document_ids, current_user.id)
     return SummarizeResponse(
         summary=result.text,
         document_ids=result.document_ids,
