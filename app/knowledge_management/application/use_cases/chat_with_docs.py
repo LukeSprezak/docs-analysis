@@ -3,6 +3,8 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any
 
+from app.shared.exceptions import EntityNotFoundException
+
 from ...domain.models import Answer, ChatMessage, Conversation, Document
 from ...domain.null_knowledge_graph_repo import NullKnowledgeGraphRepo
 from ...domain.repositories import (
@@ -45,14 +47,17 @@ class ChatWithDocsUseCase:
 
         The step shared by the plain and the streaming variant.
         """
-        conversation = (
-            await self.conversation_repo.get_by_id(conversation_id, owner_id)
-            if conversation_id
-            else None
-        )
-        if conversation is None:
-            conversation_id = conversation_id or str(uuid.uuid4())
-            conversation = Conversation(id=conversation_id, title=message[:50], messages=[])
+        if conversation_id is None:
+            # A new conversation — the id is ours to mint, never the caller's to choose.
+            conversation = Conversation(id=str(uuid.uuid4()), title=message[:50], messages=[])
+        else:
+            found = await self.conversation_repo.get_by_id(conversation_id, owner_id)
+            if found is None:
+                # The repository cannot tell "no such conversation" from "belongs to someone
+                # else", and must not: both mean this caller may not write under that id.
+                # Creating it here instead would hand the caller whatever row already holds it.
+                raise EntityNotFoundException(entity="Conversation", identifier=conversation_id)
+            conversation = found
 
         prior_messages = [{"role": m.role, "content": m.content} for m in conversation.messages]
         if not prior_messages and history:

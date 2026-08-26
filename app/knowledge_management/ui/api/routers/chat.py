@@ -1,6 +1,6 @@
 import json
 from collections.abc import AsyncIterator
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
@@ -83,19 +83,30 @@ async def chat_stream(
     history = [m.model_dump() for m in chat_request.history] if chat_request.history else None
     owner_id = current_user.id
 
+    def encode(event: dict[str, Any]) -> str:
+        if event["type"] == "done":
+            payload: dict[str, Any] = {
+                "type": "done",
+                "conversation_id": event["conversation_id"],
+                "sources": format_sources(event["sources"]),
+            }
+        else:
+            payload = event
+        return json.dumps(payload, ensure_ascii=False) + "\n"
+
+    stream = use_case.execute_stream(
+        chat_request.message, owner_id, history, chat_request.conversation_id
+    )
+    # The first event is pulled here, outside the response body. Everything that can still
+    # fail with a status code — an unknown conversation id above all — happens on that first
+    # step, and once StreamingResponse starts iterating the 200 headers are already sent:
+    # an exception raised in there cannot become a 404, it only truncates the stream.
+    first_event = await anext(stream)
+
     async def generate() -> AsyncIterator[str]:
-        async for event in use_case.execute_stream(
-            chat_request.message, owner_id, history, chat_request.conversation_id
-        ):
-            if event["type"] == "done":
-                payload = {
-                    "type": "done",
-                    "conversation_id": event["conversation_id"],
-                    "sources": format_sources(event["sources"]),
-                }
-            else:
-                payload = event
-            yield json.dumps(payload, ensure_ascii=False) + "\n"
+        yield encode(first_event)
+        async for event in stream:
+            yield encode(event)
 
     return StreamingResponse(generate(), media_type="application/x-ndjson")
 

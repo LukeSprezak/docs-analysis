@@ -2,8 +2,11 @@ import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from app.knowledge_management.application.use_cases.chat_with_docs import ChatWithDocsUseCase
 from app.knowledge_management.domain.models import ChatMessage, Conversation, Document
+from app.shared.exceptions import EntityNotFoundException
 
 
 def _vec(docs: list[Document] | None = None) -> MagicMock:
@@ -158,3 +161,55 @@ def test_execute_stream_yields_tokens_then_done_and_persists_full_answer():
     saved_conversation = conv_repo.save.call_args.args[0]
     assert saved_conversation.messages[-1].role == "assistant"
     assert saved_conversation.messages[-1].content == "Hello"
+
+
+def test_chat_rejects_a_conversation_id_the_caller_does_not_own():
+    """SEC-01: an unknown conversation id is an error, not a licence to create that id.
+
+    `get_by_id` returns None both for an id that does not exist and for one owned by
+    somebody else — the repository cannot tell them apart and must not try. Either way the
+    caller has no business writing under that id, so the turn stops before the LLM is
+    called and before anything is persisted.
+    """
+    conv_repo = MagicMock()
+    conv_repo.get_by_id = AsyncMock(return_value=None)
+    conv_repo.save = AsyncMock()
+    rag = MagicMock()
+    rag.answer_question = AsyncMock(return_value="ans")
+    vec = _vec()
+
+    uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
+
+    with pytest.raises(EntityNotFoundException):
+        asyncio.run(uc.execute("take it over", "attacker", conversation_id="someone-elses-id"))
+
+    rag.answer_question.assert_not_called()
+    conv_repo.save.assert_not_called()
+
+
+def test_execute_stream_rejects_a_conversation_id_the_caller_does_not_own():
+    conv_repo = MagicMock()
+    conv_repo.get_by_id = AsyncMock(return_value=None)
+    conv_repo.save = AsyncMock()
+    rag = MagicMock()
+
+    async def fake_astream(message, documents, history=None):
+        yield "token"
+
+    rag.astream_answer = fake_astream
+    vec = _vec()
+
+    uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
+
+    async def collect() -> list[dict[str, Any]]:
+        return [
+            event
+            async for event in uc.execute_stream(
+                "take it over", "attacker", conversation_id="someone-elses-id"
+            )
+        ]
+
+    with pytest.raises(EntityNotFoundException):
+        asyncio.run(collect())
+
+    conv_repo.save.assert_not_called()

@@ -94,13 +94,7 @@ chmod +x ./scripts/lint.sh
 ./scripts/lint.sh
 
 echo "Running tests..."
-if [ -f ./scripts/tests.sh ]; then
-    chmod +x ./scripts/tests.sh
-    ./scripts/tests.sh
-else
-    echo "Tests script not found, running pytest via uv..."
-    uv run pytest
-fi
+uv run pytest
 
 echo "The setup was successful!"
 echo "The app is available at: http://localhost:8001/docs"

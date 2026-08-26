@@ -12,6 +12,15 @@ class PostgresConversationRepo(BasePostgresRepo, ConversationRepo):
     # via BasePostgresRepo (not a per-call `psycopg.connect`).
 
     async def save(self, conversation: Conversation, owner_id: str) -> None:
+        """Upserts the conversation — but only into a row this owner already holds.
+
+        The primary key is the id alone, so without the `WHERE` on `DO UPDATE` the upsert
+        would happily land on somebody else's row: anyone who knows a conversation id (it is
+        returned in every chat response) could overwrite its title and history and take it
+        over. Losing that condition means the statement does nothing, which is exactly right
+        — a foreign id is not this caller's to write. `owner_id` is deliberately absent from
+        the `SET` list: ownership is never reassigned by a save.
+        """
         messages_json = json.dumps(
             [
                 {"role": m.role, "content": m.content, "timestamp": m.timestamp}
@@ -24,8 +33,8 @@ class PostgresConversationRepo(BasePostgresRepo, ConversationRepo):
             VALUES (:id, :title, :messages, :owner_id)
             ON CONFLICT (id) DO UPDATE
             SET title = EXCLUDED.title,
-                messages = EXCLUDED.messages,
-                owner_id = EXCLUDED.owner_id
+                messages = EXCLUDED.messages
+            WHERE conversations.owner_id = EXCLUDED.owner_id
             """,
             {
                 "id": conversation.id,

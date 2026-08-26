@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from app.knowledge_management.domain.models import Answer, Conversation, Document
 from app.main import app
 from app.shared.dependencies import get_chat_with_docs_use_case, get_list_conversations_use_case
+from app.shared.exceptions import EntityNotFoundException
 
 client = TestClient(app, raise_server_exceptions=False)
 
@@ -37,6 +38,31 @@ def test_chat_stream_endpoint_emits_ndjson_tokens_then_done():
     assert events[-1]["conversation_id"] == "c1"
     # The sources are formatted using format_sources (title + page)
     assert events[-1]["sources"] == ["doc1.pdf (page 2)"]
+
+    app.dependency_overrides.clear()
+
+
+def test_chat_stream_endpoint_reports_an_unknown_conversation_as_404():
+    """SEC-01, streaming half: the rejection must reach the client as a status code.
+
+    The use case refuses a conversation id the caller does not own. If that refusal only
+    surfaces once StreamingResponse is already iterating, the 200 headers are on the wire
+    and the client sees a truncated stream instead of an error.
+    """
+    mock_use_case = MagicMock()
+
+    async def fake_stream(message, owner_id, history, conversation_id):
+        raise EntityNotFoundException(entity="Conversation", identifier=conversation_id)
+        yield  # pragma: no cover - keeps this an async generator
+
+    mock_use_case.execute_stream = fake_stream
+    app.dependency_overrides[get_chat_with_docs_use_case] = lambda: mock_use_case
+
+    response = client.post(
+        "/api/v1/chat/stream", json={"message": "hi", "conversation_id": "someone-elses-id"}
+    )
+
+    assert response.status_code == 404
 
     app.dependency_overrides.clear()
 
