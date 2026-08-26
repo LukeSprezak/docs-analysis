@@ -10,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.shared.database import db_connection, get_engine
 
 from ...application.retrieval.rank_fusion import fuse_documents, retrieval_key
+from ...domain.document_identity import parent_document_id
 from ...domain.models import Document
 from ...domain.repositories import VectorStoreRepo
 from ..text.text_chunker import TextChunker
@@ -80,9 +81,9 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         )
         return [
             Document(
-                # The real parent document id from the chunk metadata (PGVector does not
-                # expose .id on the result → this used to come out as "unknown").
-                id=str(res.metadata.get("doc_id") or res.metadata.get("filename") or "unknown"),
+                # PGVector does not expose .id on the result, so the parent id comes from
+                # the chunk metadata (this used to come out as "unknown").
+                id=parent_document_id(res.metadata),
                 content=res.page_content,
                 metadata=res.metadata,
             )
@@ -135,7 +136,7 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
 
         return [
             Document(
-                id=str(metadata.get("doc_id") or metadata.get("filename") or "unknown"),
+                id=parent_document_id(metadata),
                 content=content,
                 metadata=metadata,
             )

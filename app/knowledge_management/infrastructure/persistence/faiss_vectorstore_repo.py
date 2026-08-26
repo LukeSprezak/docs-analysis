@@ -2,6 +2,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document as LangChainDocument
 from langchain_core.embeddings import Embeddings
 
+from ...domain.document_identity import parent_document_id
 from ...domain.models import Document
 from ...domain.repositories import VectorStoreRepo
 from ..text.text_chunker import TextChunker
@@ -79,9 +80,7 @@ class FaissVectorStoreRepo(VectorStoreRepo):
         )
         return [
             Document(
-                id=str(
-                    result.metadata.get("doc_id") or result.metadata.get("filename") or "unknown"
-                ),
+                id=parent_document_id(result.metadata),
                 content=result.page_content,
                 metadata=result.metadata,
             )

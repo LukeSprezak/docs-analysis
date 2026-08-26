@@ -31,6 +31,7 @@ from langchain_core.runnables.config import run_in_executor
 from langchain_neo4j import Neo4jVector
 
 from ...application.retrieval.rank_fusion import fuse_documents, retrieval_key
+from ...domain.document_identity import parent_document_id
 from ...domain.models import Document
 from ...domain.repositories import VectorStoreRepo
 from ..text.text_chunker import TextChunker
@@ -169,9 +170,9 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
     @staticmethod
     def _to_document(content: str, metadata: dict[str, Any]) -> Document:
         return Document(
-            # The parent document id from the chunk metadata — the node's own `id` is the
-            # chunk id ("{doc_id}::{index}"), which is not what callers cite.
-            id=str(metadata.get("doc_id") or metadata.get("filename") or "unknown"),
+            # The node's own `id` is the chunk id ("{doc_id}::{index}"), which is not what
+            # callers cite — the parent id comes from the chunk metadata.
+            id=parent_document_id(metadata),
             content=content,
             metadata=metadata,
         )

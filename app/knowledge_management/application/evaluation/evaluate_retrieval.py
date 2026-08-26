@@ -1,5 +1,6 @@
 from collections.abc import Callable, Sequence
 
+from ...domain.document_identity import citation_label
 from ...domain.evaluation import (
     UNCATEGORIZED,
     EvaluationExample,
@@ -12,13 +13,9 @@ from .retrieval_pipeline import RetrievalPipeline
 
 
 def default_document_identifier(document: Document) -> str:
-    """The parent document identifier taken from a chunk — used to match relevance.
-
-    Prefers the human-readable file name (that is how golden sets are written), falling back
-    to the namespaced ``doc_id`` and finally the raw ``id``.
-    """
-    metadata = document.metadata or {}
-    return str(metadata.get("filename") or metadata.get("doc_id") or document.id)
+    """The parent document identifier used to match relevance — the same human-readable name
+    a citation shows, because that is how golden sets are written."""
+    return citation_label(document)
 
 
 class RetrievalEvaluator:
