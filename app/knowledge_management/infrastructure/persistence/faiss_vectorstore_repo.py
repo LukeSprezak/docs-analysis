@@ -19,8 +19,10 @@ class FaissVectorStoreRepo(VectorStoreRepo):
         self._embeddings = embeddings
         self._chunker = chunker or TextChunker()
         self._vector_store: FAISS | None = None
-        # Maps document id (filename) -> list of its chunk ids, used for deletion.
-        self._chunk_ids_by_document_id: dict[str, list[str]] = {}
+        # Maps (owner_id, document id) -> list of its chunk ids, used for deletion. The
+        # owner is part of the key so a delete cannot reach another user's chunks, matching
+        # what the Postgres and Neo4j adapters enforce in their queries.
+        self._chunk_ids_by_owned_document: dict[tuple[str, str], list[str]] = {}
 
     async def add_documents(self, documents: list[Document], owner_id: str) -> None:
         # Stamp the owner onto every document before chunking (chunks inherit the metadata
@@ -47,7 +49,10 @@ class FaissVectorStoreRepo(VectorStoreRepo):
             LangChainDocument(page_content=chunk.content, metadata=chunk.metadata)
             for chunk in chunks
         ]
-        chunk_ids = [chunk.id for chunk in chunks]
+        # The chunker numbers chunks per document ("{doc_id}::{n}"), which is unique only as
+        # long as document ids are. FAISS refuses duplicate ids outright, so the owner goes
+        # into the key here — two users uploading the same document id stay separate.
+        chunk_ids = [f"{owner_id}::{chunk.id}" for chunk in chunks]
 
         if self._vector_store is None:
             self._vector_store = FAISS.from_documents(
@@ -56,11 +61,9 @@ class FaissVectorStoreRepo(VectorStoreRepo):
         else:
             self._vector_store.add_documents(langchain_documents, ids=chunk_ids)
 
-        for chunk in chunks:
-            # doc_id is namespaced per user (the parent document id) → unique.
-            document_id = chunk.metadata.get("doc_id") or chunk.metadata.get("filename")
-            if document_id is not None:
-                self._chunk_ids_by_document_id.setdefault(document_id, []).append(chunk.id)
+        for chunk, chunk_id in zip(chunks, chunk_ids, strict=True):
+            key = (owner_id, chunk.metadata["doc_id"])
+            self._chunk_ids_by_owned_document.setdefault(key, []).append(chunk_id)
 
     async def search(self, query: str, owner_id: str, top_k: int = 4) -> list[Document]:
         if self._vector_store is None:
@@ -89,7 +92,6 @@ class FaissVectorStoreRepo(VectorStoreRepo):
         if self._vector_store is None:
             return
 
-        # doc_id is namespaced per user, so on its own it is enough for isolation.
-        chunk_ids = self._chunk_ids_by_document_id.pop(doc_id, [])
+        chunk_ids = self._chunk_ids_by_owned_document.pop((owner_id, doc_id), [])
         if chunk_ids:
             self._vector_store.delete(chunk_ids)

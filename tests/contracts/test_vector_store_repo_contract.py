@@ -7,6 +7,7 @@ once it is added to `ADAPTERS` below and passes unchanged.
 The behaviours pinned here are the ones the use cases and the security model depend on:
 
 * retrieval is isolated per `owner_id` — a query never reaches another user's chunks;
+* so is deletion — removing a document never touches another user's chunks;
 * documents are chunked before embedding, and the parent document id survives the round trip;
 * a re-upload replaces the previous chunks instead of orphaning them;
 * deleting one document leaves the others intact, and deleting nothing is a no-op.
@@ -257,6 +258,38 @@ async def test_search_isolates_documents_by_owner(repo: VectorStoreRepo) -> None
     alice_results = {doc.id for doc in await repo.search("quicksort", owner_id="alice", top_k=100)}
     assert alice_results == {"secret.pdf"}
     assert "bob.pdf" not in alice_results
+
+
+async def test_delete_isolates_documents_by_owner(repo: VectorStoreRepo) -> None:
+    # Write isolation, symmetric to the read case above: deleting a document must not touch
+    # another user's fragments that happen to share the id. Production ids are namespaced per
+    # user, but that is an invariant of the caller — the port promises the owner filter here.
+    await repo.add_documents(
+        [
+            Document(
+                id="shared.pdf",
+                content="alice's notes about quicksort",
+                metadata={"filename": "shared.pdf"},
+            )
+        ],
+        owner_id="alice",
+    )
+    await repo.add_documents(
+        [
+            Document(
+                id="shared.pdf",
+                content="bob's notes about quicksort",
+                metadata={"filename": "shared.pdf"},
+            )
+        ],
+        owner_id="bob",
+    )
+
+    await repo.delete_by_document_id("shared.pdf", owner_id="alice")
+
+    bob_results = await repo.search("quicksort", owner_id="bob", top_k=100)
+    assert {doc.id for doc in bob_results} == {"shared.pdf"}
+    assert await repo.search("quicksort", owner_id="alice", top_k=100) == []
 
 
 # --- Hybrid retrieval -------------------------------------------------------------------
