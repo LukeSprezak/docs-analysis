@@ -6,7 +6,6 @@ services:
     restart: always
     ports:
       - "8001:8000"
-    volumes: []
     environment:
       - ENVIRONMENT=production
       - LOG_LEVEL=WARNING
@@ -20,6 +19,8 @@ services:
           memory: 256M
 
   frontend:
+    build:
+      target: prod
     restart: always
     volumes:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro

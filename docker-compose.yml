@@ -10,9 +10,6 @@ services:
     restart: unless-stopped
     ports:
       - "8001:8000"
-    volumes:
-      - .:/app
-      - venv_data:/app/.venv
     env_file:
       - .env
     environment:
@@ -40,10 +37,6 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
-    volumes:
-      - ./client:/app
-      - /app/node_modules
-      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile
     depends_on:
       - api
     networks:
