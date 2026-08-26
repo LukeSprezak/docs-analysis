@@ -3,16 +3,11 @@ from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
 
 from app.shared.config import settings
 from app.shared.enums import LLMProvider
 
-
-def _as_secret(api_key: str | None) -> SecretStr | None:
-    """The API key as SecretStr (the type LangChain clients expect). None → None, so the
-    library can fall back to reading the key from an environment variable."""
-    return SecretStr(api_key) if api_key else None
+from .api_keys import as_secret
 
 
 class LLMFactory:
@@ -23,7 +18,7 @@ class LLMFactory:
         match provider:
             case LLMProvider.OPENAI:
                 return ChatOpenAI(
-                    api_key=_as_secret(settings.OPENAI_API_KEY),
+                    api_key=as_secret(settings.OPENAI_API_KEY),
                     model=settings.LLM_MODEL or "gpt-4o-mini",
                 )
             case LLMProvider.ANTHROPIC:
@@ -32,7 +27,7 @@ class LLMFactory:
                 # environment variable. timeout/stop=None == default; the ignore covers only the
                 # incorrect api_key type (Optional at runtime, non-Optional in the stub).
                 return ChatAnthropic(
-                    api_key=_as_secret(settings.ANTHROPIC_API_KEY),  # type: ignore[arg-type]
+                    api_key=as_secret(settings.ANTHROPIC_API_KEY),  # type: ignore[arg-type]
                     model_name=settings.LLM_MODEL or "claude-3-5-sonnet-20240620",
                     timeout=None,
                     stop=None,

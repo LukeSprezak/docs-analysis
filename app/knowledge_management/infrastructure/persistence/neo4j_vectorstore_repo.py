@@ -34,6 +34,7 @@ from ...application.retrieval.rank_fusion import fuse_documents, retrieval_key
 from ...domain.models import Document
 from ...domain.repositories import VectorStoreRepo
 from ..text.text_chunker import TextChunker
+from .lucene import escape_lucene
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +136,7 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
             "ORDER BY score DESC LIMIT $top_k",
             {
                 "index_name": self.vector_store.keyword_index_name,
-                "query": _escape_lucene(query),
+                "query": escape_lucene(query),
                 "owner_id": owner_id,
                 "candidates": max(top_k * 5, 50),
                 "top_k": top_k,
@@ -174,14 +175,3 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
             content=content,
             metadata=metadata,
         )
-
-
-def _escape_lucene(query: str) -> str:
-    """Neutralizes Lucene syntax in user input.
-
-    `db.index.fulltext.queryNodes` takes a Lucene query, so characters like `:` or `~` from a
-    user's question would otherwise be parsed as operators — at best skewing results, at
-    worst raising a syntax error mid-request.
-    """
-    special_characters = r'+-&|!(){}[]^"~*?:\/'
-    return "".join(f"\\{char}" if char in special_characters else char for char in query)

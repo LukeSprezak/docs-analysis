@@ -28,6 +28,7 @@ from langchain_neo4j import Neo4jGraph
 from ...domain.entity_normalization import normalize_entity_name
 from ...domain.models import Document, GraphFragment
 from ...domain.repositories import KnowledgeGraphRepo
+from .lucene import escape_lucene
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +157,7 @@ class Neo4jKnowledgeGraphRepo(KnowledgeGraphRepo):
             "ORDER BY score DESC LIMIT $top_k",
             {
                 "index_name": self.index_name,
-                "query": _escape_lucene(query),
+                "query": escape_lucene(query),
                 "owner_id": owner_id,
                 "candidates": max(top_k * 5, 50),
                 "seed_limit": max(top_k, 4),
@@ -219,9 +220,3 @@ class Neo4jKnowledgeGraphRepo(KnowledgeGraphRepo):
                 ),
             },
         )
-
-
-def _escape_lucene(query: str) -> str:
-    """Neutralizes Lucene syntax in user input — see the note in `neo4j_vectorstore_repo`."""
-    special_characters = r'+-&|!(){}[]^"~*?:\/'
-    return "".join(f"\\{char}" if char in special_characters else char for char in query)

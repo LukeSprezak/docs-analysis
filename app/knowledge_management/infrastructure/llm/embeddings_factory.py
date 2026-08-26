@@ -2,16 +2,11 @@ from langchain_core.embeddings import Embeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_ollama import OllamaEmbeddings
 from langchain_openai import OpenAIEmbeddings
-from pydantic import SecretStr
 
 from app.shared.config import settings
 from app.shared.enums import LLMProvider
 
-
-def _as_secret(api_key: str | None) -> SecretStr | None:
-    """The API key as SecretStr (the type LangChain clients expect). None → None, so the
-    library can fall back to reading the key from an environment variable."""
-    return SecretStr(api_key) if api_key else None
+from .api_keys import as_secret
 
 
 class EmbeddingsFactory:
@@ -21,7 +16,7 @@ class EmbeddingsFactory:
 
         match provider:
             case LLMProvider.OPENAI:
-                return OpenAIEmbeddings(api_key=_as_secret(settings.OPENAI_API_KEY))
+                return OpenAIEmbeddings(api_key=as_secret(settings.OPENAI_API_KEY))
             case LLMProvider.GOOGLE:
                 return GoogleGenerativeAIEmbeddings(
                     google_api_key=settings.GOOGLE_API_KEY,  # type: ignore[call-arg]
@@ -31,7 +26,7 @@ class EmbeddingsFactory:
                 return OllamaEmbeddings(base_url=settings.OLLAMA_BASE_URL, model="llama3")
             case LLMProvider.ANTHROPIC:
                 if settings.OPENAI_API_KEY:
-                    return OpenAIEmbeddings(api_key=_as_secret(settings.OPENAI_API_KEY))
+                    return OpenAIEmbeddings(api_key=as_secret(settings.OPENAI_API_KEY))
                 raise ValueError(
                     "Anthropic provider selected but no Embeddings fallback available. Please provide OPENAI_API_KEY."
                 )
