@@ -16,7 +16,7 @@ from app.knowledge_management.ui.api.routers import (
 )
 from app.shared.config import settings
 from app.shared.database import dispose_engine
-from app.shared.dependencies import shutdown_repositories
+from app.shared.dependencies import init_repositories, shutdown_repositories
 from app.shared.exception_handlers import (
     app_exception_handler,
     global_exception_handler,
@@ -32,13 +32,18 @@ setup_logging()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """Releases connections on shutdown.
+    """Opens the repositories on startup and releases the connections on shutdown.
 
-    Repositories go first — an adapter that owns a driver (Neo4j) has to close it itself —
-    and the shared SQLAlchemy pool second, since the record repositories borrow from it.
-    Without this the pool was never disposed: connections stayed open until the process died,
-    which a reloading dev server or a test run does repeatedly.
+    Building them here rather than on whichever request arrives first means an adapter that
+    connects in its constructor (Neo4j) fails the startup instead of a query, and that two
+    concurrent first requests cannot each build one.
+
+    On the way out repositories go first — an adapter that owns a driver has to close it
+    itself — and the shared SQLAlchemy pool second, since the record repositories borrow from
+    it. Without this the pool was never disposed: connections stayed open until the process
+    died, which a reloading dev server or a test run does repeatedly.
     """
+    init_repositories()
     yield
     await shutdown_repositories()
     await dispose_engine()
@@ -50,12 +55,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# slowapi reads the limiter off app.state — both the `@limiter.limit(...)` decorators in the
-# routers and SlowAPIMiddleware (which applies RATE_LIMIT_DEFAULT as the global safeguard).
 app.state.limiter = limiter
 
-# Middleware added last sits outermost. CORS goes outside everything so preflight is answered
-# before rate limiting, and error responses still carry the Access-Control-* headers.
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(
@@ -67,8 +68,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# AppException carries its own status code and error code; everything else becomes a generic
-# 500 so no internal detail (connection strings, stack traces) reaches the client.
 app.add_exception_handler(AppException, app_exception_handler)
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.add_exception_handler(Exception, global_exception_handler)

@@ -6,9 +6,12 @@ routers below are compiled against the contract, and the only code that names
 `PostgresDocumentRepo` and friends is `infrastructure/persistence/factory.py`.
 
 The repositories are process-wide singletons — they hold no per-request state, only a handle
-to a shared connection pool (or, for FAISS, the in-memory index).
+to a shared connection pool (or, for FAISS, the in-memory index). They are built eagerly by
+`init_repositories()` in the application lifespan, and lazily (under a lock) by the providers
+below for callers that run without one, such as the evaluation harness.
 """
 
+import threading
 from typing import Annotated
 
 from fastapi import Depends
@@ -40,7 +43,8 @@ from app.knowledge_management.infrastructure.llm.reranker_factory import Reranke
 from app.knowledge_management.infrastructure.persistence import factory
 from app.shared.config import settings
 
-# Singleton instances
+_singleton_lock = threading.Lock()
+
 _doc_repo: DocumentRepo | None = None
 _vector_repo: VectorStoreRepo | None = None
 _summary_repo: SummaryRepo | None = None
@@ -51,44 +55,66 @@ _entity_extractor: EntityExtractor | None = None
 
 def get_doc_repo() -> DocumentRepo:
     global _doc_repo
-    if _doc_repo is None:
-        _doc_repo = factory.create_document_repo()
-    return _doc_repo
+    with _singleton_lock:
+        if _doc_repo is None:
+            _doc_repo = factory.create_document_repo()
+        return _doc_repo
 
 
 def get_vector_repo() -> VectorStoreRepo:
     global _vector_repo
-    if _vector_repo is None:
-        _vector_repo = factory.create_vector_store_repo()
-    return _vector_repo
+    with _singleton_lock:
+        if _vector_repo is None:
+            _vector_repo = factory.create_vector_store_repo()
+        return _vector_repo
 
 
 def get_summary_repo() -> SummaryRepo:
     global _summary_repo
-    if _summary_repo is None:
-        _summary_repo = factory.create_summary_repo()
-    return _summary_repo
+    with _singleton_lock:
+        if _summary_repo is None:
+            _summary_repo = factory.create_summary_repo()
+        return _summary_repo
 
 
 def get_conversation_repo() -> ConversationRepo:
     global _conversation_repo
-    if _conversation_repo is None:
-        _conversation_repo = factory.create_conversation_repo()
-    return _conversation_repo
+    with _singleton_lock:
+        if _conversation_repo is None:
+            _conversation_repo = factory.create_conversation_repo()
+        return _conversation_repo
 
 
 def get_graph_repo() -> KnowledgeGraphRepo:
     global _graph_repo
-    if _graph_repo is None:
-        _graph_repo = factory.create_knowledge_graph_repo()
-    return _graph_repo
+    with _singleton_lock:
+        if _graph_repo is None:
+            _graph_repo = factory.create_knowledge_graph_repo()
+        return _graph_repo
 
 
 def get_entity_extractor() -> EntityExtractor:
     global _entity_extractor
-    if _entity_extractor is None:
-        _entity_extractor = factory.create_entity_extractor()
-    return _entity_extractor
+    with _singleton_lock:
+        if _entity_extractor is None:
+            _entity_extractor = factory.create_entity_extractor()
+        return _entity_extractor
+
+
+def init_repositories() -> None:
+    """Builds every repository singleton up front (called from the application lifespan).
+
+    Pairs with `shutdown_repositories`: what the lifespan closes, the lifespan also opens —
+    instead of the singletons appearing on whichever request happened to arrive first. A
+    missing or unreachable Neo4j therefore fails the startup rather than the first query,
+    which is the same reasoning `docker-compose.yml` uses to wait for the graph to be healthy.
+    """
+    get_doc_repo()
+    get_vector_repo()
+    get_summary_repo()
+    get_conversation_repo()
+    get_graph_repo()
+    get_entity_extractor()
 
 
 async def shutdown_repositories() -> None:
