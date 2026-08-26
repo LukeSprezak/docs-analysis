@@ -57,14 +57,16 @@ const authHeader = (): Record<string, string> => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-const extractErrorCode = async (response: Response): Promise<string> => {
+const errorCodeFromBody = (body: string): string => {
   try {
-    const data = await response.json();
-    return data?.error?.error_code || 'GENERIC';
+    return JSON.parse(body)?.error?.error_code || 'GENERIC';
   } catch {
     return 'GENERIC';
   }
 };
+
+const extractErrorCode = async (response: Response): Promise<string> =>
+  errorCodeFromBody(await response.text());
 
 const ensureOk = async (response: Response): Promise<Response> => {
   if (!response.ok) {
@@ -138,12 +140,7 @@ export const api = {
             resolve(xhr.responseText);
           }
         } else {
-          try {
-            const error = JSON.parse(xhr.responseText);
-            reject(new Error(error.detail || `Upload failed with status ${xhr.status}`));
-          } catch (e) {
-            reject(new Error(`Upload failed with status ${xhr.status}`));
-          }
+          reject(new Error(errorCodeFromBody(xhr.responseText)));
         }
       };
 

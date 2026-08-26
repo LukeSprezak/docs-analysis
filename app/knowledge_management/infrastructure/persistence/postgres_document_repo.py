@@ -12,14 +12,22 @@ class PostgresDocumentRepo(BasePostgresRepo, DocumentRepo):
     # via BasePostgresRepo (not a per-call `psycopg.connect`).
 
     async def save(self, document: Document, owner_id: str) -> None:
+        """Upserts the document — but only into a row this owner already holds.
+
+        The primary key is the id alone, so without the `WHERE` on `DO UPDATE` the upsert
+        would land on somebody else's row whenever the ids collide. Losing that condition
+        means the statement does nothing, which is exactly right — a foreign id is not this
+        caller's to write. `owner_id` is deliberately absent from the `SET` list: ownership
+        is never reassigned by a save.
+        """
         await self._execute_statement(
             """
             INSERT INTO documents (id, content, metadata, owner_id)
             VALUES (:id, :content, :metadata, :owner_id)
             ON CONFLICT (id) DO UPDATE
             SET content = EXCLUDED.content,
-                metadata = EXCLUDED.metadata,
-                owner_id = EXCLUDED.owner_id
+                metadata = EXCLUDED.metadata
+            WHERE documents.owner_id = EXCLUDED.owner_id
             """,
             {
                 "id": document.id,

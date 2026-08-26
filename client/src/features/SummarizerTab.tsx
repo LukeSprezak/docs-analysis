@@ -6,6 +6,17 @@ import Markdown from '../components/Markdown';
 import { confirmDelete } from '../components/confirmDelete';
 import { TrashIcon } from '../components/icons';
 
+const uploadErrorKey = (code: string): string => {
+  switch (code) {
+    case 'VALIDATION_ERROR':
+      return 'summarizer.upload_error_invalid_file';
+    case 'RATE_LIMIT_EXCEEDED':
+      return 'summarizer.upload_error_rate_limit';
+    default:
+      return 'summarizer.upload_error';
+  }
+};
+
 const SummarizerTab: React.FC = () => {
   const { t } = useLanguage();
   const [documents, setDocuments] = useState<DocumentInfo[]>([]);
@@ -81,7 +92,7 @@ const SummarizerTab: React.FC = () => {
     } catch (error) {
       if (processingInterval) clearInterval(processingInterval);
       console.error(error);
-      toast.error(t('summarizer.upload_error'));
+      toast.error(t(uploadErrorKey((error as Error).message)));
     } finally {
       setTimeout(() => {
         setUploading(false);

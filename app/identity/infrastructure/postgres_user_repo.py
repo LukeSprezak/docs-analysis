@@ -24,13 +24,20 @@ class PostgresUserRepo(BasePostgresRepo, UserRepo):
         return self._row_to_user(row)
 
     async def save(self, user: User) -> None:
+        """Upserts the user — but only into the row that already carries this e-mail.
+
+        The e-mail is the login, so it plays the role `owner_id` plays elsewhere: it stays
+        out of the `SET` list and guards `DO UPDATE` instead. Without that condition a save
+        carrying somebody else's id would rewrite their credentials and hand over the
+        account; with it the statement simply does nothing.
+        """
         await self._execute_statement(
             """
             INSERT INTO users (id, email, hashed_password)
             VALUES (:id, :email, :hashed_password)
             ON CONFLICT (id) DO UPDATE
-            SET email = EXCLUDED.email,
-                hashed_password = EXCLUDED.hashed_password
+            SET hashed_password = EXCLUDED.hashed_password
+            WHERE users.email = EXCLUDED.email
             """,
             {
                 "id": user.id,
