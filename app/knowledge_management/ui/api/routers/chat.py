@@ -91,9 +91,7 @@ async def chat_stream(
             payload = event
         return json.dumps(payload, ensure_ascii=False) + "\n"
 
-    stream = use_case.execute_stream(
-        chat_request.message, owner_id, chat_request.conversation_id
-    )
+    stream = use_case.execute_stream(chat_request.message, owner_id, chat_request.conversation_id)
     # The first event is pulled here, outside the response body. Everything that can still
     # fail with a status code — an unknown conversation id above all — happens on that first
     # step, and once StreamingResponse starts iterating the 200 headers are already sent:

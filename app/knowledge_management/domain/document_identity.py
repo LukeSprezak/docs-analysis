@@ -59,6 +59,4 @@ def parent_document_id(metadata: Mapping[str, Any]) -> str:
 
 def citation_label(document: Document) -> str:
     """The parent document's human-readable name, for citations and golden-set matching."""
-    return str(
-        document.metadata.get("filename") or document.metadata.get("doc_id") or document.id
-    )
+    return str(document.metadata.get("filename") or document.metadata.get("doc_id") or document.id)

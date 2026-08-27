@@ -54,6 +54,4 @@ class RerankerFactory:
                 # system that simply stops reranking, costing answer quality with nothing to
                 # report it. Turning reranking off is a decision, so it has to be spelled
                 # `none` — same rule as every other factory here.
-                raise ValueError(
-                    f"Unsupported Reranker provider: {settings.RERANKER_PROVIDER}"
-                )
+                raise ValueError(f"Unsupported Reranker provider: {settings.RERANKER_PROVIDER}")

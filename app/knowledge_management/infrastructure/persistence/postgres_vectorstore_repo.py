@@ -99,7 +99,9 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         """
         vector_documents = await self._vector_search(query, owner_id, top_k)
         keyword_documents = await self._keyword_search(query, owner_id, top_k)
-        return fuse_documents([vector_documents, keyword_documents], top_k=top_k, key_of=retrieval_key)
+        return fuse_documents(
+            [vector_documents, keyword_documents], top_k=top_k, key_of=retrieval_key
+        )
 
     async def _keyword_search(self, query: str, owner_id: str, top_k: int) -> list[Document]:
         """Full-text search over chunk content (Postgres FTS, ranked with ts_rank).

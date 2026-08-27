@@ -6,7 +6,6 @@ from app.shared.postgres_repo import BasePostgresRepo, _execute_statement, _fetc
 
 
 class PostgresUserRepo(BasePostgresRepo, UserRepo):
-
     async def get_by_email(self, email: str) -> User | None:
         row = await _fetch_one_row(
             "SELECT id, email, hashed_password, created_at FROM users WHERE email = :email",

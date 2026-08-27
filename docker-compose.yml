@@ -62,8 +62,10 @@ services:
       retries: 5
       start_period: 10s
 
-  # Graph store. Not yet wired into the application (no PERSISTENCE_PROVIDER=neo4j adapter
-  # exists) — it is here so the contract suites in tests/contracts/ have a server to run
+  # Graph store. Backs two providers the application can be pointed at:
+  # KNOWLEDGE_GRAPH_PROVIDER=neo4j and VECTOR_STORE_PROVIDER=neo4j, both with full adapters
+  # (see the factory). PERSISTENCE_PROVIDER is the one that has no neo4j variant — records
+  # live in Postgres. It also gives the contract suites in tests/contracts/ a server to run
   # their `integration` parameters against. The browser UI is on :7474, Bolt on :7687.
   graph:
     image: neo4j:5-community

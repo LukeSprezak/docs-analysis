@@ -25,18 +25,14 @@ async def _execute_statement(statement: str, parameters: Mapping[str, Any]) -> N
         await connection.execute(text(statement), parameters)
 
 
-async def _fetch_one_row(
-        statement: str, parameters: Mapping[str, Any]
-) -> Row[Any] | None:
+async def _fetch_one_row(statement: str, parameters: Mapping[str, Any]) -> Row[Any] | None:
     """Returns the first row of the result, or None when the query returned nothing."""
     async with db_connection() as connection:
         result = await connection.execute(text(statement), parameters)
         return result.fetchone()
 
 
-async def _fetch_all_rows(
-        statement: str, parameters: Mapping[str, Any]
-) -> Sequence[Row[Any]]:
+async def _fetch_all_rows(statement: str, parameters: Mapping[str, Any]) -> Sequence[Row[Any]]:
     """Returns every row of the result."""
     async with db_connection() as connection:
         result = await connection.execute(text(statement), parameters)
@@ -44,7 +40,6 @@ async def _fetch_all_rows(
 
 
 class BasePostgresRepo:
-
     @staticmethod
     def _deserialize_json_column(value: Any) -> Any:
         """Normalizes a JSONB column into a Python object.
