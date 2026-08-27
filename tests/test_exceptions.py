@@ -19,8 +19,9 @@ def test_app_exception_handler():
     assert "error" in data
     assert data["error"]["message"] == "Test error"
     assert data["error"]["error_code"] == "TEST_ERROR"
-    assert data["error"]["context"] == {"foo": "bar"}
     assert "request_id" in data["error"]
+    # SEC-03: the diagnostic context is logged, never returned.
+    assert "context" not in data["error"]
 
 
 def test_global_exception_handler():
@@ -47,4 +48,4 @@ def test_entity_not_found_exception():
     assert data["error"]["error_code"] == "ENTITY_NOT_FOUND"
     assert "User" in data["error"]["message"]
     assert "123" in data["error"]["message"]
-    assert data["error"]["context"] == {"entity": "User", "identifier": 123}
+    assert "context" not in data["error"]

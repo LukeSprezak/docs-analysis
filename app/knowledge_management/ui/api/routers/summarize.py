@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
@@ -24,13 +25,18 @@ class SummarizeRequest(BaseModel):
 
 
 class SummarizeResponse(BaseModel):
+    # Not optional: a summary only ever leaves through here after `SummaryRepo.save`, which
+    # mints the id and the timestamp (pinned by the contract suite). Declaring them nullable
+    # pushed the same lie into the client's types, where nothing would have caught an adapter
+    # that stopped filling them in — here pydantic fails the response instead.
     summary: str
     document_ids: list[str]
-    id: str | None = None
-    created_at: str | None = None
+    id: str
+    created_at: str
 
 
-@router.post("/", response_model=SummarizeResponse)
+# 201: the request creates a summary — it is stored and comes back with its own id.
+@router.post("/", response_model=SummarizeResponse, status_code=201)
 @limiter.limit(settings.RATE_LIMIT_LLM)
 async def summarize_docs(
     request: Request,
@@ -65,9 +71,9 @@ async def list_summaries(
 
 @router.delete("/{summary_id}")
 async def delete_summary(
-    summary_id: str,
+    summary_id: UUID,
     use_case: Annotated[DeleteSummaryUseCase, Depends(get_delete_summary_use_case)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    await use_case.execute(summary_id, current_user.id)
+    await use_case.execute(str(summary_id), current_user.id)
     return {"status": "success"}

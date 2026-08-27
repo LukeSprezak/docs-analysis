@@ -15,8 +15,16 @@ client = TestClient(app, raise_server_exceptions=False)
 
 
 def _mock_upload():
+    """A use case stub the router can actually await.
+
+    Every test below is rejected by validation before the use case runs, so today the stub is
+    never called. It is an `AsyncMock` anyway because the router does `await use_case.execute(...)`:
+    with a plain `MagicMock` the first test to reach the happy path would get a 500 from
+    awaiting a `Document`, and the cause would not be anywhere near the failure."""
     mock = MagicMock()
-    mock.execute.return_value = Document(id="ok.txt", content="x", metadata={"filename": "ok.txt"})
+    mock.execute = AsyncMock(
+        return_value=Document(id="ok.txt", content="x", metadata={"filename": "ok.txt"})
+    )
     return mock
 
 
@@ -47,23 +55,21 @@ def test_is_within_storage():
     assert not is_within_storage("/etc/passwd")
 
 
-def test_upload_rejects_path_traversal_filename():
-    app.dependency_overrides[get_upload_document_use_case] = _mock_upload
+def test_upload_rejects_path_traversal_filename(override_dependency):
+    override_dependency(get_upload_document_use_case, _mock_upload)
     files = {"file": ("../../evil.txt", b"pwned")}
     resp = client.post("/api/v1/documents/upload", files=files)
     assert resp.status_code == 400
-    app.dependency_overrides.clear()
 
 
-def test_upload_rejects_oversized_file():
-    app.dependency_overrides[get_upload_document_use_case] = _mock_upload
+def test_upload_rejects_oversized_file(override_dependency):
+    override_dependency(get_upload_document_use_case, _mock_upload)
     from app.shared.config import settings
 
     too_big = b"a" * (settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024 + 1)
     files = {"file": ("big.txt", too_big)}
     resp = client.post("/api/v1/documents/upload", files=files)
     assert resp.status_code == 400
-    app.dependency_overrides.clear()
 
 
 @pytest.mark.parametrize("good", ["file.pdf", "FILE.PDF", "note.txt", "readme.md"])
@@ -87,29 +93,27 @@ def test_validate_pdf_content_rejects_non_pdf(bad):
         validate_pdf_content(bad)
 
 
-def test_upload_rejects_disallowed_extension():
-    app.dependency_overrides[get_upload_document_use_case] = _mock_upload
+def test_upload_rejects_disallowed_extension(override_dependency):
+    override_dependency(get_upload_document_use_case, _mock_upload)
     files = {"file": ("evil.exe", b"MZ\x90\x00binary")}
     resp = client.post("/api/v1/documents/upload", files=files)
     assert resp.status_code == 400
-    app.dependency_overrides.clear()
 
 
-def test_upload_rejects_pdf_with_wrong_magic_bytes():
+def test_upload_rejects_pdf_with_wrong_magic_bytes(override_dependency):
     # A file with a .pdf extension but non-PDF content → rejected on magic bytes.
-    app.dependency_overrides[get_upload_document_use_case] = _mock_upload
+    override_dependency(get_upload_document_use_case, _mock_upload)
     files = {"file": ("fake.pdf", b"this is plain text pretending to be a pdf")}
     resp = client.post("/api/v1/documents/upload", files=files)
     assert resp.status_code == 400
-    app.dependency_overrides.clear()
 
 
-def test_upload_does_not_leak_exception_detail_to_client():
+def test_upload_does_not_leak_exception_detail_to_client(override_dependency):
     # An unexpected use case error carrying sensitive text must not reach the response.
     secret_detail = "secret connection string postgres://user:pass@host"
     mock = MagicMock()
     mock.execute = AsyncMock(side_effect=RuntimeError(secret_detail))
-    app.dependency_overrides[get_upload_document_use_case] = lambda: mock
+    override_dependency(get_upload_document_use_case, lambda: mock)
 
     files = {"file": ("ok.txt", b"hello world")}
     resp = client.post("/api/v1/documents/upload", files=files)
@@ -117,4 +121,3 @@ def test_upload_does_not_leak_exception_detail_to_client():
     assert resp.status_code == 500
     assert secret_detail not in resp.text
     assert resp.json()["error"]["message"] == "An unexpected error occurred"
-    app.dependency_overrides.clear()

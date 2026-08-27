@@ -1,4 +1,5 @@
 import json
+import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
@@ -11,7 +12,7 @@ from app.shared.exceptions import EntityNotFoundException
 client = TestClient(app, raise_server_exceptions=False)
 
 
-def test_chat_stream_endpoint_emits_ndjson_tokens_then_done():
+def test_chat_stream_endpoint_emits_ndjson_tokens_then_done(override_dependency):
     mock_use_case = MagicMock()
 
     async def fake_stream(message, owner_id, conversation_id):
@@ -26,7 +27,7 @@ def test_chat_stream_endpoint_emits_ndjson_tokens_then_done():
         }
 
     mock_use_case.execute_stream = fake_stream
-    app.dependency_overrides[get_chat_with_docs_use_case] = lambda: mock_use_case
+    override_dependency(get_chat_with_docs_use_case, lambda: mock_use_case)
 
     response = client.post("/api/v1/chat/stream", json={"message": "hi"})
 
@@ -39,10 +40,8 @@ def test_chat_stream_endpoint_emits_ndjson_tokens_then_done():
     # The sources are formatted using format_sources (title + page)
     assert events[-1]["sources"] == ["doc1.pdf (page 2)"]
 
-    app.dependency_overrides.clear()
 
-
-def test_chat_stream_endpoint_reports_an_unknown_conversation_as_404():
+def test_chat_stream_endpoint_reports_an_unknown_conversation_as_404(override_dependency):
     """SEC-01, streaming half: the rejection must reach the client as a status code.
 
     The use case refuses a conversation id the caller does not own. If that refusal only
@@ -56,18 +55,29 @@ def test_chat_stream_endpoint_reports_an_unknown_conversation_as_404():
         yield  # pragma: no cover - keeps this an async generator
 
     mock_use_case.execute_stream = fake_stream
-    app.dependency_overrides[get_chat_with_docs_use_case] = lambda: mock_use_case
+    override_dependency(get_chat_with_docs_use_case, lambda: mock_use_case)
 
     response = client.post(
-        "/api/v1/chat/stream", json={"message": "hi", "conversation_id": "someone-elses-id"}
+        "/api/v1/chat/stream",
+        json={"message": "hi", "conversation_id": str(uuid.uuid4())},
     )
 
     assert response.status_code == 404
 
-    app.dependency_overrides.clear()
+
+def test_chat_stream_endpoint_rejects_a_malformed_conversation_id_as_422():
+    """CON-05: a malformed id is a client error, not a database cast error.
+
+    `conversations.id` is a `uuid` column, so an id that is not one reaches Postgres and comes
+    back as a 500 — a plain typo in a URL would page whoever watches the error rate."""
+    response = client.post(
+        "/api/v1/chat/stream", json={"message": "hi", "conversation_id": "not-a-uuid"}
+    )
+
+    assert response.status_code == 422
 
 
-def test_chat_endpoint():
+def test_chat_endpoint(override_dependency):
     # Mock result
     mock_result = Answer(
         text="The answer is 42",
@@ -78,7 +88,7 @@ def test_chat_endpoint():
     mock_use_case.execute = AsyncMock(return_value=(mock_result, "conv123"))
 
     # Override dependency
-    app.dependency_overrides[get_chat_with_docs_use_case] = lambda: mock_use_case
+    override_dependency(get_chat_with_docs_use_case, lambda: mock_use_case)
 
     response = client.post("/api/v1/chat/", json={"message": "What is the meaning of life?"})
 
@@ -89,10 +99,9 @@ def test_chat_endpoint():
     assert "doc1" in data["sources"]
 
     # Cleanup
-    app.dependency_overrides.clear()
 
 
-def test_list_conversations():
+def test_list_conversations(override_dependency):
     mock_conversations = [
         Conversation(id="c1", title="Conv 1", messages=[]),
         Conversation(id="c2", title="Conv 2", messages=[]),
@@ -101,7 +110,7 @@ def test_list_conversations():
     mock_use_case = MagicMock()
     mock_use_case.execute = AsyncMock(return_value=mock_conversations)
 
-    app.dependency_overrides[get_list_conversations_use_case] = lambda: mock_use_case
+    override_dependency(get_list_conversations_use_case, lambda: mock_use_case)
 
     response = client.get("/api/v1/chat/conversations")
 
@@ -110,5 +119,3 @@ def test_list_conversations():
     assert len(data) == 2
     assert data[0]["id"] == "c1"
     assert data[1]["id"] == "c2"
-
-    app.dependency_overrides.clear()

@@ -239,7 +239,7 @@ const SummarizerTab: React.FC = () => {
                     </svg>
                   </div>
                   <span className="text-xs font-semibold text-gray-500 group-hover:text-blue-600 transition-colors">
-                    {t('summarizer.select_all') || 'Zaznacz wszystko'}
+                    {t('summarizer.select_all')}
                   </span>
                 </label>
               </div>

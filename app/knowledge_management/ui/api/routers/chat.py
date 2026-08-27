@@ -1,6 +1,7 @@
 import json
 from collections.abc import AsyncIterator
 from typing import Annotated, Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
@@ -35,8 +36,11 @@ class ChatMessageSchema(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    # A UUID, not a free string: the column is `uuid`, so a malformed id reaches Postgres as
+    # a cast error and comes back a 500. Typed here, FastAPI rejects it with a 422 before any
+    # query runs.
     message: str
-    conversation_id: str | None = None
+    conversation_id: UUID | None = None
 
 
 class ChatResponse(BaseModel):
@@ -52,6 +56,11 @@ class ConversationSchema(BaseModel):
     created_at: str | None = None
 
 
+def _conversation_id(chat_request: ChatRequest) -> str | None:
+    """The requested conversation id as the rest of the system spells it — a string."""
+    return str(chat_request.conversation_id) if chat_request.conversation_id else None
+
+
 @router.post("/", response_model=ChatResponse)
 @limiter.limit(settings.RATE_LIMIT_LLM)
 async def chat(
@@ -61,7 +70,7 @@ async def chat(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> ChatResponse:
     result, conv_id = await use_case.execute(
-        chat_request.message, current_user.id, chat_request.conversation_id
+        chat_request.message, current_user.id, _conversation_id(chat_request)
     )
     return ChatResponse(
         answer=result.text, sources=format_sources(result.sources), conversation_id=conv_id
@@ -91,7 +100,7 @@ async def chat_stream(
             payload = event
         return json.dumps(payload, ensure_ascii=False) + "\n"
 
-    stream = use_case.execute_stream(chat_request.message, owner_id, chat_request.conversation_id)
+    stream = use_case.execute_stream(chat_request.message, owner_id, _conversation_id(chat_request))
     # The first event is pulled here, outside the response body. Everything that can still
     # fail with a status code — an unknown conversation id above all — happens on that first
     # step, and once StreamingResponse starts iterating the 200 headers are already sent:
@@ -130,11 +139,11 @@ async def list_conversations(
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationSchema)
 async def get_conversation(
-    conversation_id: str,
+    conversation_id: UUID,
     use_case: Annotated[GetConversationUseCase, Depends(get_get_conversation_use_case)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> ConversationSchema:
-    conversation = await use_case.execute(conversation_id, current_user.id)
+    conversation = await use_case.execute(str(conversation_id), current_user.id)
     if not conversation:
         raise EntityNotFoundException(entity="Conversation", identifier=conversation_id)
     return ConversationSchema(
@@ -150,9 +159,9 @@ async def get_conversation(
 
 @router.delete("/conversations/{conversation_id}")
 async def delete_conversation(
-    conversation_id: str,
+    conversation_id: UUID,
     use_case: Annotated[DeleteConversationUseCase, Depends(get_delete_conversation_use_case)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    await use_case.execute(conversation_id, current_user.id)
+    await use_case.execute(str(conversation_id), current_user.id)
     return {"status": "success"}

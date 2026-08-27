@@ -44,9 +44,13 @@ class GenerationEvaluator:
         self, examples: Sequence[EvaluationExample], owner_id: str
     ) -> tuple[GenerationMetrics, list[GenerationExampleResult]]:
         results = [await self.evaluate_example(example, owner_id) for example in examples]
+        faithfulness = [r.faithfulness for r in results if r.faithfulness is not None]
+        answer_relevance = [r.answer_relevance for r in results if r.answer_relevance is not None]
         metrics = GenerationMetrics(
             example_count=len(results),
-            mean_faithfulness=retrieval_metrics.mean([r.faithfulness for r in results]),
-            mean_answer_relevance=retrieval_metrics.mean([r.answer_relevance for r in results]),
+            mean_faithfulness=retrieval_metrics.mean(faithfulness),
+            mean_answer_relevance=retrieval_metrics.mean(answer_relevance),
+            scored_faithfulness_count=len(faithfulness),
+            scored_answer_relevance_count=len(answer_relevance),
         )
         return metrics, results

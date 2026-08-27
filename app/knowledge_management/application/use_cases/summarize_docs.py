@@ -1,3 +1,5 @@
+from app.shared.exceptions import ValidationException
+
 from ...domain.models import Summary
 from ...domain.repositories import DocumentRepo, SummarizerService, SummaryRepo
 
@@ -18,7 +20,15 @@ class SummarizeDocsUseCase:
             if doc:
                 documents.append(doc)
 
+        # Every requested id was missing or belongs to someone else. Summarizing nothing is
+        # a paid LLM call on an empty prompt, and the summary it produces would be stored
+        # claiming documents it never saw — a stale list in the UI is enough to get here.
+        if not documents:
+            raise ValidationException("None of the requested documents were found")
+
         summary_text = await self.summarizer.summarize(documents)
-        summary = Summary(text=summary_text, document_ids=doc_ids)
-        await self.summary_repo.save(summary, owner_id)
-        return summary
+        # The ids actually summarized, not the ones asked for: the two differ whenever the
+        # loop above skipped something, and the stored summary has to describe its own input.
+        return await self.summary_repo.save(
+            summary_text, [document.id for document in documents], owner_id
+        )

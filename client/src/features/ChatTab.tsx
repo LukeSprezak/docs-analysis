@@ -99,7 +99,7 @@ const ChatTab: React.FC = () => {
       setMessages(conv.messages);
       setCurrentConvId(conv.id);
     } catch (error) {
-      toast.error(t('chat.load_error') || 'Błąd ładowania rozmowy');
+      toast.error(t('chat.load_error'));
     } finally {
       setLoading(false);
     }
@@ -111,13 +111,13 @@ const ChatTab: React.FC = () => {
     confirmDelete(t, async () => {
       try {
         await api.deleteConversation(id);
-        toast.success(t('chat.delete_success') || 'Rozmowa usunięta');
+        toast.success(t('chat.delete_success'));
         fetchConversations();
         if (currentConvId === id) {
           handleNewChat();
         }
       } catch (error) {
-        toast.error(t('chat.delete_error') || 'Błąd usuwania');
+        toast.error(t('chat.delete_error'));
       }
     });
   };
@@ -129,7 +129,7 @@ const ChatTab: React.FC = () => {
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      toast.success(t('chat.copy_success') || 'Skopiowano do schowka');
+      toast.success(t('chat.copy_success'));
     }).catch(err => {
       console.error('Failed to copy: ', err);
     });
@@ -154,11 +154,11 @@ const ChatTab: React.FC = () => {
           onClick={handleNewChat}
           className="mb-4 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
         >
-          + {t('chat.new_chat') || 'Nowa rozmowa'}
+          + {t('chat.new_chat')}
         </button>
         <div className="flex-1 overflow-y-auto">
           <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
-            {t('chat.history') || 'Historia'}
+            {t('chat.history')}
           </h4>
           {conversations.map(conv => (
             <div
@@ -187,7 +187,7 @@ const ChatTab: React.FC = () => {
         <div className="flex-1 border border-gray-300 dark:border-gray-700 rounded-lg overflow-y-auto mb-4 p-4 bg-gray-50 dark:bg-gray-800 shadow-inner">
           {messages.length === 0 && (
             <div className="flex items-center justify-center h-full text-gray-400 italic">
-              {t('chat.start_prompt') || 'Zadaj pytanie dotyczące dokumentów...'}
+              {t('chat.start_prompt')}
             </div>
           )}
           {messages.map((m, i) => (

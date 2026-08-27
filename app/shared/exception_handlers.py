@@ -23,6 +23,11 @@ async def app_exception_handler(request: Request, exc: Exception) -> JSONRespons
         extra={"error_code": exc.error_code, "context": exc.context},
     )
 
+    # `context` is diagnostic and stays in the log line above. It takes an arbitrary dict
+    # (`InfrastructureException`), so the first caller to put a host name, a query fragment or
+    # an internal id in there would be shipping it to the browser. The client reads
+    # `error_code` and nothing else, and `global_exception_handler` already reveals nothing —
+    # this keeps the two consistent.
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -30,7 +35,6 @@ async def app_exception_handler(request: Request, exc: Exception) -> JSONRespons
                 "message": exc.message,
                 "error_code": exc.error_code,
                 "request_id": get_request_id(),
-                "context": exc.context,
             }
         },
     )

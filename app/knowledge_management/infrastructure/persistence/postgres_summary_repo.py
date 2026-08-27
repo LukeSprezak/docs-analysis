@@ -16,22 +16,24 @@ class PostgresSummaryRepo(BasePostgresRepo, SummaryRepo):
     # Schema managed by Alembic (migrations/); connections come from the shared async pool
     # via BasePostgresRepo (not a per-call `psycopg.connect`).
 
-    async def save(self, summary: Summary, owner_id: str) -> str:
+    async def save(self, text: str, document_ids: list[str], owner_id: str) -> Summary:
         row = await _fetch_one_row(
             "INSERT INTO summaries (text, document_ids, owner_id) "
             "VALUES (:text, :document_ids, :owner_id) RETURNING id, created_at",
             {
-                "text": summary.text,
-                "document_ids": json.dumps(summary.document_ids),
+                "text": text,
+                "document_ids": json.dumps(document_ids),
                 "owner_id": owner_id,
             },
         )
         if row is None:
             raise RuntimeError("INSERT ... RETURNING returned no row")
-        summary_id = str(row[0])
-        summary.id = summary_id
-        summary.created_at = row[1].isoformat()
-        return summary_id
+        return Summary(
+            text=text,
+            document_ids=document_ids,
+            id=str(row[0]),
+            created_at=row[1].isoformat(),
+        )
 
     async def get_by_id(self, summary_id: str, owner_id: str) -> Summary | None:
         row = await _fetch_one_row(

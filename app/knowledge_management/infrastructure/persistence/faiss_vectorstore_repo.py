@@ -1,3 +1,4 @@
+from anyio import to_thread
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document as LangChainDocument
 from langchain_core.embeddings import Embeddings
@@ -14,6 +15,11 @@ class FaissVectorStoreRepo(VectorStoreRepo):
     Like the Postgres variant: it chunks documents before embedding and returns the real
     parent document id from the chunk metadata. State is held in process memory — it is
     gone after a restart.
+
+    FAISS has no async API, and building or querying an index embeds text — a network call to
+    the embeddings provider. Every such call goes through `to_thread.run_sync`, so the event
+    loop keeps serving while it is in flight; the sibling adapters do the same (Postgres with
+    the driver's `a*` methods, Neo4j with `run_in_executor`).
     """
 
     def __init__(self, embeddings: Embeddings, chunker: TextChunker | None = None) -> None:
@@ -56,11 +62,14 @@ class FaissVectorStoreRepo(VectorStoreRepo):
         chunk_ids = [f"{owner_id}{OWNER_SEPARATOR}{chunk.id}" for chunk in chunks]
 
         if self._vector_store is None:
-            self._vector_store = FAISS.from_documents(
-                langchain_documents, self._embeddings, ids=chunk_ids
+            self._vector_store = await to_thread.run_sync(
+                lambda: FAISS.from_documents(langchain_documents, self._embeddings, ids=chunk_ids)
             )
         else:
-            self._vector_store.add_documents(langchain_documents, ids=chunk_ids)
+            store = self._vector_store
+            await to_thread.run_sync(
+                lambda: store.add_documents(langchain_documents, ids=chunk_ids)
+            )
 
         for chunk, chunk_id in zip(chunks, chunk_ids, strict=True):
             key = (owner_id, chunk.metadata["doc_id"])
@@ -72,11 +81,14 @@ class FaissVectorStoreRepo(VectorStoreRepo):
 
         # The metadata filter limits results to the asker's own chunks. fetch_k > k because
         # the filter is applied after fetching — otherwise we would return too few results.
-        results = self._vector_store.similarity_search(
-            query,
-            k=top_k,
-            filter={"owner_id": owner_id},
-            fetch_k=max(top_k * 5, 50),
+        store = self._vector_store
+        results = await to_thread.run_sync(
+            lambda: store.similarity_search(
+                query,
+                k=top_k,
+                filter={"owner_id": owner_id},
+                fetch_k=max(top_k * 5, 50),
+            )
         )
         return [
             Document(
@@ -93,4 +105,5 @@ class FaissVectorStoreRepo(VectorStoreRepo):
 
         chunk_ids = self._chunk_ids_by_owned_document.pop((owner_id, doc_id), [])
         if chunk_ids:
-            self._vector_store.delete(chunk_ids)
+            store = self._vector_store
+            await to_thread.run_sync(lambda: store.delete(chunk_ids))

@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
-from app.identity.dependencies import get_current_user, get_user_repo
+from app.identity.dependencies import get_user_repo
 from app.identity.domain.models import User
 from app.identity.security import create_access_token
 from app.knowledge_management.domain.models import Answer, Document
@@ -29,21 +29,18 @@ class FakeUserRepo:
         pass
 
 
-def test_protected_endpoint_without_token_returns_401():
-    app.dependency_overrides.pop(get_current_user, None)
-    app.dependency_overrides[get_user_repo] = lambda: FakeUserRepo()
-    app.dependency_overrides[get_ask_question_use_case] = lambda: MagicMock()
+def test_protected_endpoint_without_token_returns_401(without_test_user, override_dependency):
+    override_dependency(get_user_repo, lambda: FakeUserRepo())
+    override_dependency(get_ask_question_use_case, lambda: MagicMock())
 
     response = client.post("/api/v1/qa/ask", json={"question": "anything"})
 
     assert response.status_code == 401
-    app.dependency_overrides.clear()
 
 
-def test_protected_endpoint_with_invalid_token_returns_401():
-    app.dependency_overrides.pop(get_current_user, None)
-    app.dependency_overrides[get_user_repo] = lambda: FakeUserRepo()
-    app.dependency_overrides[get_ask_question_use_case] = lambda: MagicMock()
+def test_protected_endpoint_with_invalid_token_returns_401(without_test_user, override_dependency):
+    override_dependency(get_user_repo, lambda: FakeUserRepo())
+    override_dependency(get_ask_question_use_case, lambda: MagicMock())
 
     response = client.post(
         "/api/v1/qa/ask",
@@ -52,13 +49,11 @@ def test_protected_endpoint_with_invalid_token_returns_401():
     )
 
     assert response.status_code == 401
-    app.dependency_overrides.clear()
 
 
-def test_valid_token_passes_guard_and_reaches_use_case():
+def test_valid_token_passes_guard_and_reaches_use_case(without_test_user, override_dependency):
     user = User(id="u1", email="alice@example.com", hashed_password="x")
-    app.dependency_overrides.pop(get_current_user, None)
-    app.dependency_overrides[get_user_repo] = lambda: FakeUserRepo(user)
+    override_dependency(get_user_repo, lambda: FakeUserRepo(user))
 
     mock_use_case = MagicMock()
     mock_use_case.execute = AsyncMock(
@@ -67,7 +62,7 @@ def test_valid_token_passes_guard_and_reaches_use_case():
             sources=[Document(id="u1::doc.pdf", content="x", metadata={"filename": "doc.pdf"})],
         )
     )
-    app.dependency_overrides[get_ask_question_use_case] = lambda: mock_use_case
+    override_dependency(get_ask_question_use_case, lambda: mock_use_case)
 
     token = create_access_token(user.id)
     response = client.post(
@@ -80,4 +75,3 @@ def test_valid_token_passes_guard_and_reaches_use_case():
     assert response.json()["answer"] == "answer"
     # the use case received the logged-in user's ID as the owner_id
     assert mock_use_case.execute.call_args.args[1] == "u1"
-    app.dependency_overrides.clear()

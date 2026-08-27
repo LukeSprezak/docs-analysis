@@ -49,7 +49,7 @@ class StubVectorStoreRepo(VectorStoreRepo):
 
 
 class StubSummaryRepo(SummaryRepo):
-    async def save(self, summary: Summary, owner_id: str) -> str:
+    async def save(self, text: str, document_ids: list[str], owner_id: str) -> Summary:
         raise NotImplementedError
 
     async def get_by_id(self, summary_id: str, owner_id: str) -> Summary | None:

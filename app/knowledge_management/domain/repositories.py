@@ -87,14 +87,16 @@ class AnswerJudge(ABC):
     """
 
     @abstractmethod
-    async def score_faithfulness(self, answer: str, context: list[Document]) -> float:
+    async def score_faithfulness(self, answer: str, context: list[Document]) -> float | None:
         """How well the answer is grounded in the supplied context (0.0-1.0).
-        A low value means hallucination / content from outside the context."""
+        A low value means hallucination / content from outside the context; `None` means the
+        judge failed to produce a score, which is not the same as scoring zero."""
         pass
 
     @abstractmethod
-    async def score_answer_relevance(self, question: str, answer: str) -> float:
-        """How well the answer actually addresses the question asked (0.0-1.0)."""
+    async def score_answer_relevance(self, question: str, answer: str) -> float | None:
+        """How well the answer actually addresses the question asked (0.0-1.0), or `None` when
+        the judge failed to produce a score."""
         pass
 
 
@@ -106,7 +108,11 @@ class SummarizerService(ABC):
 
 class SummaryRepo(ABC):
     @abstractmethod
-    async def save(self, summary: Summary, owner_id: str) -> str:
+    async def save(self, text: str, document_ids: list[str], owner_id: str) -> Summary:
+        """Stores a new summary and returns it, with the id and timestamp the store assigned.
+
+        Takes the content rather than a `Summary`: the identity is the store's to mint, so
+        there is no half-built summary for a caller to hold on to."""
         pass
 
     @abstractmethod

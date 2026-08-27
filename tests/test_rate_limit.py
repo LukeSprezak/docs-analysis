@@ -33,29 +33,26 @@ def rate_limiting_enabled():
     limiter.reset()
 
 
-def test_auth_login_blocks_after_limit(rate_limiting_enabled):
+def test_auth_login_blocks_after_limit(rate_limiting_enabled, override_dependency):
     mock_use_case = MagicMock()
     mock_use_case.execute = AsyncMock(
         return_value=User(id="u1", email="user@example.com", hashed_password="x")
     )
-    app.dependency_overrides[get_authenticate_user_use_case] = lambda: mock_use_case
+    override_dependency(get_authenticate_user_use_case, lambda: mock_use_case)
 
     allowed = _parse_limit_per_window(settings.RATE_LIMIT_AUTH)
     payload = {"email": "user@example.com", "password": "secret"}
 
-    try:
-        # The first `allowed` requests go through.
-        for _ in range(allowed):
-            response = client.post("/api/v1/auth/login", json=payload)
-            assert response.status_code == 200
+    # The first `allowed` requests go through.
+    for _ in range(allowed):
+        response = client.post("/api/v1/auth/login", json=payload)
+        assert response.status_code == 200
 
-        # The next one is cut off by the limit.
-        blocked = client.post("/api/v1/auth/login", json=payload)
-        assert blocked.status_code == 429
-        body = blocked.json()
-        assert body["error"]["error_code"] == "RATE_LIMIT_EXCEEDED"
-    finally:
-        app.dependency_overrides.pop(get_authenticate_user_use_case, None)
+    # The next one is cut off by the limit.
+    blocked = client.post("/api/v1/auth/login", json=payload)
+    assert blocked.status_code == 429
+    body = blocked.json()
+    assert body["error"]["error_code"] == "RATE_LIMIT_EXCEEDED"
 
 
 def test_rate_limit_disabled_allows_unlimited_requests():

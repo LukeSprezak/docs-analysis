@@ -4,14 +4,14 @@ Revision ID: 0001_initial_schema
 Revises:
 Create Date: 2026-06-07 22:32:10.066136
 
-Schemat aplikacji przeniesiony z `_ensure_table_exists()` w repozytoriach do migracji.
-Obejmuje cztery tabele należące do aplikacji: users, documents, summaries, conversations
-(`owner_id` skonsolidowany do definicji tabeli zamiast osobnego ALTER-a).
+The application schema, moved out of `_ensure_table_exists()` in the repositories and into a
+migration. It covers the four tables the application owns: users, documents, summaries and
+conversations (with `owner_id` folded into the table definition instead of a separate ALTER).
 
-GRANICA: tabele wektorowe `langchain_pg_collection` / `langchain_pg_embedding` są
-zarządzane przez bibliotekę `langchain_postgres` (PGVector tworzy je automatycznie),
-więc świadomie NIE są częścią tej migracji. Rozszerzenie `vector` jest tu tworzone, bo
-jest wymagane przez pgvector i lepiej, żeby należało do migracji niż do kodu aplikacji.
+BOUNDARY: the vector tables `langchain_pg_collection` / `langchain_pg_embedding` are managed
+by `langchain_postgres` (PGVector creates them itself), so they are deliberately NOT part of
+this migration. The `vector` extension is created here because pgvector requires it, and it
+belongs to a migration rather than to application code.
 """
 
 from collections.abc import Sequence
@@ -81,5 +81,5 @@ def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS summaries")
     op.execute("DROP TABLE IF EXISTS documents")
     op.execute("DROP TABLE IF EXISTS users")
-    # Rozszerzenie `vector` zostawiamy — może być używane przez tabele PGVector
-    # poza zarządzaniem tej migracji.
+    # The `vector` extension stays: PGVector tables outside this migration's control may
+    # still be using it.

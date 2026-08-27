@@ -1,6 +1,9 @@
+import pytest
+
 from app.knowledge_management.application.use_cases.summarize_docs import SummarizeDocsUseCase
 from app.knowledge_management.domain.models import Document, Summary
 from app.knowledge_management.domain.repositories import SummarizerService
+from app.shared.exceptions import ValidationException
 from tests.fakes import StubDocumentRepo, StubSummaryRepo
 
 
@@ -25,11 +28,13 @@ class FakeSummarizer(SummarizerService):
 
 class FakeSummaryRepo(StubSummaryRepo):
     def __init__(self) -> None:
-        self.saved: tuple[Summary, str] | None = None
+        self.saved: tuple[str, list[str], str] | None = None
 
-    async def save(self, summary: Summary, owner_id: str) -> str:
-        self.saved = (summary, owner_id)
-        return summary.id or "s1"
+    async def save(self, text: str, document_ids: list[str], owner_id: str) -> Summary:
+        self.saved = (text, document_ids, owner_id)
+        return Summary(
+            text=text, document_ids=document_ids, id="s1", created_at="2026-01-01T00:00:00"
+        )
 
 
 async def test_summarize_gathers_only_existing_owned_documents_and_saves():
@@ -48,10 +53,28 @@ async def test_summarize_gathers_only_existing_owned_documents_and_saves():
     # get_by_id filters by owner; "missing" returns None and is skipped.
     assert summarizer.received_documents == [documents["a"], documents["b"]]
     assert [call[1] for call in doc_repo.get_calls] == ["o1", "o1", "o1"]
-    # The text comes from the summarizer, but document_ids preserves the original input.
+    # The text comes from the summarizer; document_ids records what was actually summarized,
+    # not what was asked for — "missing" was skipped, so it is not part of the summary.
     assert summary.text == "summary"
-    assert summary.document_ids == ["a", "missing", "b"]
-    assert summary_repo.saved is not None
-    saved_summary, saved_owner = summary_repo.saved
-    assert saved_owner == "o1"
-    assert saved_summary.text == "summary"
+    assert summary.document_ids == ["o1::a", "o1::b"]
+    # The stored summary comes back with the identity the store minted.
+    assert summary.id == "s1"
+    assert summary_repo.saved == ("summary", ["o1::a", "o1::b"], "o1")
+
+
+async def test_summarize_refuses_when_no_requested_document_was_found():
+    """ERR-01: nothing to summarize is a client error, not an empty prompt.
+
+    Summarizing an empty list is a paid LLM call with no content, and the summary it returns
+    would be stored claiming documents it never saw."""
+    doc_repo = FakeDocRepo({})
+    summarizer = FakeSummarizer()
+    summary_repo = FakeSummaryRepo()
+
+    with pytest.raises(ValidationException):
+        await SummarizeDocsUseCase(doc_repo, summarizer, summary_repo).execute(
+            ["missing"], owner_id="o1"
+        )
+
+    assert summarizer.received_documents is None
+    assert summary_repo.saved is None

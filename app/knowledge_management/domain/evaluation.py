@@ -58,12 +58,12 @@ class RetrievalMetrics:
 
 @dataclass
 class GenerationExampleResult:
-    """Wynik oceny wygenerowanej odpowiedzi dla pojedynczego pytania."""
+    """The judge's verdict on one question's generated answer."""
 
     question: str
     answer: str
-    faithfulness: float
-    answer_relevance: float
+    faithfulness: float | None
+    answer_relevance: float | None
 
 
 @dataclass
@@ -72,11 +72,18 @@ class GenerationMetrics:
 
     - ``mean_faithfulness`` — how well the answers are grounded in the context (0-1).
     - ``mean_answer_relevance`` — how well the answers address the question (0-1).
+
+    The means cover the answers the judge actually scored. The two ``scored_*`` counts say how
+    many that was: a judge that fails to return a readable score contributes nothing to the
+    mean instead of a zero, so without the counts a metric computed from three answers out of
+    twenty would look exactly like one computed from all twenty.
     """
 
     example_count: int
     mean_faithfulness: float
     mean_answer_relevance: float
+    scored_faithfulness_count: int
+    scored_answer_relevance_count: int
 
 
 @dataclass

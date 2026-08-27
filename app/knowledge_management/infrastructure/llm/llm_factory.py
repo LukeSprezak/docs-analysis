@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -12,7 +14,16 @@ from .api_keys import as_secret
 
 class LLMFactory:
     @staticmethod
+    @lru_cache(maxsize=1)
     def get_llm() -> BaseChatModel:
+        """The chat model, built once per process.
+
+        The clients are stateless, so a new one per request bought nothing and cost a fresh
+        `httpx.Client` each time — every call paying for a new TLS handshake instead of
+        reusing the provider connection. Cached like `_load_bge_scorer` and like the
+        repository singletons; `settings` is read once at import, so nothing here can go
+        stale.
+        """
         provider = settings.LLM_PROVIDER.lower()
 
         match provider:

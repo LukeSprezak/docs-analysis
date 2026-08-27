@@ -65,11 +65,16 @@ def format_report(report: EvaluationReport) -> str:
     ]
     if report.generation is not None:
         generation = report.generation
+        # The counts are printed next to each mean, not only when they disagree with the
+        # example count: a metric read off a console line should never require knowing how
+        # many answers went into it.
         lines += [
             "",
             "GENERATION (LLM-as-judge):",
-            f"  faithfulness     : {generation.mean_faithfulness:.3f}",
-            f"  answer_relevance : {generation.mean_answer_relevance:.3f}",
+            f"  faithfulness     : {generation.mean_faithfulness:.3f}"
+            f"  (scored {generation.scored_faithfulness_count}/{generation.example_count})",
+            f"  answer_relevance : {generation.mean_answer_relevance:.3f}"
+            f"  (scored {generation.scored_answer_relevance_count}/{generation.example_count})",
         ]
     return "\n".join(lines)
 
@@ -206,6 +211,21 @@ def _parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 async def main(argv: Sequence[str] | None = None) -> None:
+    from app.shared.database import dispose_engine
+    from app.shared.dependencies import shutdown_repositories
+
+    try:
+        await _run(argv)
+    finally:
+        # The same pair the HTTP application runs in its lifespan, and for the same reason:
+        # this harness builds the very same singletons. Without it the Neo4j driver and the
+        # SQLAlchemy pool stay open until the process dies — and the `SystemExit` paths below
+        # leave through here too, so the driver would complain from `__del__` on the way out.
+        await shutdown_repositories()
+        await dispose_engine()
+
+
+async def _run(argv: Sequence[str] | None) -> None:
     # Heavy dependencies are imported inside — the module itself imports without them (e.g. in tests).
     from app.knowledge_management.infrastructure.llm.answer_judge_factory import (
         AnswerJudgeFactory,

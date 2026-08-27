@@ -9,7 +9,7 @@ from app.shared.dependencies import get_ask_question_use_case
 client = TestClient(app, raise_server_exceptions=False)
 
 
-def test_ask_question_endpoint():
+def test_ask_question_endpoint(override_dependency):
     mock_result = Answer(
         text="FastAPI is a modern web framework",
         sources=[Document(id="doc2", content="FastAPI docs", metadata={})],
@@ -18,7 +18,7 @@ def test_ask_question_endpoint():
     mock_use_case = MagicMock()
     mock_use_case.execute = AsyncMock(return_value=mock_result)
 
-    app.dependency_overrides[get_ask_question_use_case] = lambda: mock_use_case
+    override_dependency(get_ask_question_use_case, lambda: mock_use_case)
 
     response = client.post("/api/v1/qa/ask", json={"question": "What is FastAPI?"})
 
@@ -26,5 +26,3 @@ def test_ask_question_endpoint():
     data = response.json()
     assert data["answer"] == "FastAPI is a modern web framework"
     assert "doc2" in data["sources"]
-
-    app.dependency_overrides.clear()

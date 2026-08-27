@@ -15,14 +15,14 @@ export const confirmDelete = (
         </div>
         <div className="flex flex-col gap-3">
           <p className="text-sm font-semibold">
-            {translate('common.confirm_delete') || 'Czy na pewno chcesz usunąć?'}
+            {translate('common.confirm_delete')}
           </p>
           <div className="flex justify-end gap-2">
             <button
               onClick={() => toast.dismiss(activeToast.id)}
               className="px-3 py-1.5 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
-              {translate('common.cancel') || 'Anuluj'}
+              {translate('common.cancel')}
             </button>
             <button
               onClick={async () => {
@@ -31,7 +31,7 @@ export const confirmDelete = (
               }}
               className="px-3 py-1.5 text-xs font-semibold bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors shadow-md"
             >
-              {translate('common.yes_delete') || 'Tak, usuń!'}
+              {translate('common.yes_delete')}
             </button>
           </div>
         </div>

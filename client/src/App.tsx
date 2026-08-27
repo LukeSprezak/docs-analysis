@@ -13,8 +13,14 @@ const AppContent: React.FC = () => {
   const { isAuthenticated, email, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'chat' | 'qa' | 'summarizer' | 'faq'>('chat');
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('darkMode');
-    return saved ? JSON.parse(saved) : false;
+    // A corrupted value (another app on the same origin, an extension, a hand edit) would
+    // throw inside the root component's state initializer, where nothing catches it — the
+    // user gets a blank page and no way back except clearing site data.
+    try {
+      return JSON.parse(localStorage.getItem('darkMode') ?? 'false') === true;
+    } catch {
+      return false;
+    }
   });
 
   useEffect(() => {

@@ -5,8 +5,8 @@ backing store is only finished once it is added to `ADAPTERS` below and passes u
 
 The behaviours pinned here are the ones the summarize use cases depend on:
 
-* `save` mints the id — the caller does not supply one — and reports it back both as the
-  return value and on the summary it was handed, together with `created_at`;
+* `save` takes the content and returns the stored summary, with the id and the `created_at`
+  the store minted — the caller never holds a summary without an identity;
 * a summary survives the round trip — text and the whole `document_ids` list;
 * every `save` is a new summary, never an update of an earlier one;
 * reads are isolated per `owner_id` — `get_by_id` and `list_all` never reach another user;
@@ -26,7 +26,6 @@ from collections.abc import AsyncIterator, Callable
 import pytest
 from sqlalchemy import text
 
-from app.knowledge_management.domain.models import Summary
 from app.knowledge_management.domain.repositories import SummaryRepo
 from app.knowledge_management.infrastructure.persistence.postgres_summary_repo import (
     PostgresSummaryRepo,
@@ -87,51 +86,54 @@ def repo(request: pytest.FixtureRequest) -> SummaryRepo:
     return factory()
 
 
-def _summary(text_: str = "The corpus is about sorting.") -> Summary:
-    """A summary as the use case builds it — no id yet, the store assigns one."""
-    return Summary(text=text_, document_ids=["doc-a", "doc-b"])
+DOCUMENT_IDS = ["doc-a", "doc-b"]
+
+
+async def _save(repo: SummaryRepo, owner: str, text: str = "The corpus is about sorting.") -> str:
+    """Stores one summary and returns its id."""
+    stored = await repo.save(text, DOCUMENT_IDS, owner_id=owner)
+    return stored.id
 
 
 async def test_get_by_id_on_empty_store_returns_none(repo: SummaryRepo, owner: str) -> None:
     assert await repo.get_by_id(str(uuid.uuid4()), owner_id=owner) is None
 
 
-async def test_save_assigns_the_id_and_reports_it_on_the_summary(
+async def test_save_returns_the_stored_summary_with_its_identity(
     repo: SummaryRepo, owner: str
 ) -> None:
-    summary = _summary()
+    stored = await repo.save("A summary.", DOCUMENT_IDS, owner_id=owner)
 
-    summary_id = await repo.save(summary, owner_id=owner)
-
-    assert summary_id
-    assert summary.id == summary_id
-    assert summary.created_at is not None
+    assert stored.id
+    assert stored.created_at
+    assert stored.text == "A summary."
+    assert stored.document_ids == DOCUMENT_IDS
 
 
 async def test_save_then_get_by_id_round_trips_text_and_document_ids(
     repo: SummaryRepo, owner: str
 ) -> None:
-    summary = Summary(text="Three papers on retrieval.", document_ids=["a.pdf", "b.pdf", "c.pdf"])
+    saved = await repo.save(
+        "Three papers on retrieval.", ["a.pdf", "b.pdf", "c.pdf"], owner_id=owner
+    )
 
-    summary_id = await repo.save(summary, owner_id=owner)
-    stored = await repo.get_by_id(summary_id, owner_id=owner)
+    stored = await repo.get_by_id(saved.id, owner_id=owner)
 
     assert stored is not None
-    assert stored.id == summary_id
+    assert stored.id == saved.id
     assert stored.text == "Three papers on retrieval."
     assert stored.document_ids == ["a.pdf", "b.pdf", "c.pdf"]
-    assert stored.created_at is not None
+    assert stored.created_at
 
 
 async def test_every_save_creates_a_new_summary(repo: SummaryRepo, owner: str) -> None:
     """A summary is a record of one run, not a mutable document.
 
-    Saving the same object twice must produce two summaries — the id carried on the object
-    from the first save is an output, never a key the second save writes into.
+    Saving the same content twice produces two summaries: there is no key the second save
+    could land on, because the caller never supplies one.
     """
-    summary = _summary()
-    first_id = await repo.save(summary, owner_id=owner)
-    second_id = await repo.save(summary, owner_id=owner)
+    first_id = await _save(repo, owner)
+    second_id = await _save(repo, owner)
 
     assert first_id != second_id
     assert len(await repo.list_all(owner_id=owner)) == 2
@@ -140,7 +142,7 @@ async def test_every_save_creates_a_new_summary(repo: SummaryRepo, owner: str) -
 async def test_get_by_id_does_not_reach_another_owners_summary(
     repo: SummaryRepo, owner: str, intruder: str
 ) -> None:
-    summary_id = await repo.save(_summary(), owner_id=owner)
+    summary_id = await _save(repo, owner)
 
     assert await repo.get_by_id(summary_id, owner_id=intruder) is None
 
@@ -148,22 +150,22 @@ async def test_get_by_id_does_not_reach_another_owners_summary(
 async def test_list_all_returns_only_the_owners_summaries(
     repo: SummaryRepo, owner: str, intruder: str
 ) -> None:
-    mine = await repo.save(_summary("Mine"), owner_id=owner)
-    await repo.save(_summary("Theirs"), owner_id=intruder)
+    mine = await _save(repo, owner, "Mine")
+    await _save(repo, intruder, "Theirs")
 
     assert [s.id for s in await repo.list_all(owner_id=owner)] == [mine]
 
 
 async def test_list_all_returns_the_newest_summary_first(repo: SummaryRepo, owner: str) -> None:
-    await repo.save(_summary("Older"), owner_id=owner)
-    await repo.save(_summary("Newer"), owner_id=owner)
+    await _save(repo, owner, "Older")
+    await _save(repo, owner, "Newer")
 
     assert [s.text for s in await repo.list_all(owner_id=owner)] == ["Newer", "Older"]
 
 
 async def test_list_all_paginates_over_that_order(repo: SummaryRepo, owner: str) -> None:
     for text_ in ("first", "second", "third"):
-        await repo.save(_summary(text_), owner_id=owner)
+        await _save(repo, owner, text_)
 
     page_one = await repo.list_all(owner_id=owner, limit=2)
     page_two = await repo.list_all(owner_id=owner, limit=2, offset=2)
@@ -173,8 +175,8 @@ async def test_list_all_paginates_over_that_order(repo: SummaryRepo, owner: str)
 
 
 async def test_delete_removes_only_that_summary(repo: SummaryRepo, owner: str) -> None:
-    kept = await repo.save(_summary("Kept"), owner_id=owner)
-    removed = await repo.save(_summary("Removed"), owner_id=owner)
+    kept = await _save(repo, owner, "Kept")
+    removed = await _save(repo, owner, "Removed")
 
     await repo.delete(removed, owner_id=owner)
 
@@ -184,7 +186,7 @@ async def test_delete_removes_only_that_summary(repo: SummaryRepo, owner: str) -
 async def test_delete_does_not_reach_another_owners_summary(
     repo: SummaryRepo, owner: str, intruder: str
 ) -> None:
-    summary_id = await repo.save(_summary(), owner_id=owner)
+    summary_id = await _save(repo, owner)
 
     await repo.delete(summary_id, owner_id=intruder)
 

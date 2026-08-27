@@ -39,7 +39,8 @@ class DocumentInfo(BaseModel):
     filename: str
 
 
-@router.post("/upload", response_model=DocumentResponse)
+# 201: the request creates a document, the same rule `/auth/register` follows.
+@router.post("/upload", response_model=DocumentResponse, status_code=201)
 @limiter.limit(settings.RATE_LIMIT_UPLOAD)
 async def upload_document(
     request: Request,
