@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.knowledge_management.application.use_cases.delete_document import DeleteDocumentUseCase
 from app.knowledge_management.domain.models import Document
-from app.shared.storage import STORAGE_DOCUMENTS_DIR
+from app.shared.storage import storage_documents_dir
 from tests.fakes import StubDocumentRepo, StubVectorStoreRepo
 
 
@@ -31,8 +31,8 @@ class FakeVectorRepo(StubVectorStoreRepo):
 
 
 async def test_delete_own_document_removes_file_and_vectors():
-    os.makedirs(STORAGE_DOCUMENTS_DIR, exist_ok=True)
-    file_descriptor, file_path = tempfile.mkstemp(dir=STORAGE_DOCUMENTS_DIR)
+    os.makedirs(storage_documents_dir(), exist_ok=True)
+    file_descriptor, file_path = tempfile.mkstemp(dir=storage_documents_dir())
     os.close(file_descriptor)
     document = Document(id="o1::a.txt", content="x", metadata={"file_path": file_path})
     doc_repo = FakeDocRepo(document)

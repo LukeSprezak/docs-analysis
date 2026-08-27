@@ -1,8 +1,17 @@
 import os
 
+from app.shared.config import settings
 from app.shared.exceptions import ValidationException
 
-STORAGE_DOCUMENTS_DIR = os.path.abspath("storage/documents")
+
+def storage_documents_dir() -> str:
+    """Absolute path of the documents root, resolved on every call.
+
+    Deliberately not a module constant: a relative setting resolves against the process cwd,
+    and tests repoint it at a temporary directory — a value frozen at import time would miss
+    both.
+    """
+    return os.path.abspath(settings.STORAGE_DOCUMENTS_DIR)
 
 
 def safe_document_path(filename: str, owner_id: str) -> str:
@@ -23,17 +32,19 @@ def safe_document_path(filename: str, owner_id: str) -> str:
     if not owner_id or owner_id != os.path.basename(owner_id) or owner_id in (".", ".."):
         raise ValidationException("Invalid owner")
 
-    path = os.path.abspath(os.path.join(STORAGE_DOCUMENTS_DIR, owner_id, name))
+    root = storage_documents_dir()
+    path = os.path.abspath(os.path.join(root, owner_id, name))
 
-    if os.path.commonpath([STORAGE_DOCUMENTS_DIR, path]) != STORAGE_DOCUMENTS_DIR:
+    if os.path.commonpath([root, path]) != root:
         raise ValidationException("Invalid filename")
     return path
 
 
 def is_within_storage(path: str) -> bool:
     """Whether the path lies inside the storage directory (used for safe deletion)."""
+    root = storage_documents_dir()
     try:
         resolved = os.path.abspath(path)
-        return os.path.commonpath([STORAGE_DOCUMENTS_DIR, resolved]) == STORAGE_DOCUMENTS_DIR
+        return os.path.commonpath([root, resolved]) == root
     except ValueError:
         return False

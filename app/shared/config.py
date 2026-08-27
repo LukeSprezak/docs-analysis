@@ -67,6 +67,10 @@ class Settings(BaseSettings):
 
     ALLOWED_UPLOAD_EXTENSIONS: str
 
+    # Where uploaded files land. A relative value resolves against the process cwd; tests
+    # repoint it at a tmp_path so they never write into the working tree.
+    STORAGE_DOCUMENTS_DIR: str = "storage/documents"
+
     LIST_DEFAULT_LIMIT: int
     LIST_MAX_LIMIT: int
 

@@ -8,7 +8,7 @@ from app.knowledge_management.domain.models import Document
 from app.main import app
 from app.shared.dependencies import get_upload_document_use_case
 from app.shared.exceptions import ValidationException
-from app.shared.storage import STORAGE_DOCUMENTS_DIR, is_within_storage, safe_document_path
+from app.shared.storage import is_within_storage, safe_document_path, storage_documents_dir
 from app.shared.upload_validation import validate_pdf_content, validate_upload_extension
 
 client = TestClient(app, raise_server_exceptions=False)
@@ -43,7 +43,7 @@ def test_safe_document_path_rejects_malicious_owner():
 
 
 def test_is_within_storage():
-    assert is_within_storage(os.path.join(STORAGE_DOCUMENTS_DIR, "a.txt"))
+    assert is_within_storage(os.path.join(storage_documents_dir(), "a.txt"))
     assert not is_within_storage("/etc/passwd")
 
 
