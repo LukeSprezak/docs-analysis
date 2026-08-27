@@ -184,7 +184,7 @@ describe('chat stream', () => {
     const tokens: string[] = [];
     const done = vi.fn();
 
-    await api.chatStream('question', [], undefined, (token) => tokens.push(token), done);
+    await api.chatStream('question', undefined, (token) => tokens.push(token), done);
 
     return { tokens, done };
   };
@@ -215,7 +215,7 @@ describe('chat stream', () => {
     fetchMock.mockResolvedValue(new Response('', { status: 401 }));
 
     await expect(
-      api.chatStream('question', [], undefined, vi.fn(), vi.fn()),
+      api.chatStream('question', undefined, vi.fn(), vi.fn()),
     ).rejects.toThrow('UNAUTHORIZED');
     expect(tokenStorage.get()).toBeNull();
     expect(onUnauthorized).toHaveBeenCalledOnce();
@@ -224,7 +224,7 @@ describe('chat stream', () => {
   it('rejects when the stream response is not ok', async () => {
     fetchMock.mockResolvedValue(new Response(errorBody('RATE_LIMIT_EXCEEDED'), { status: 429 }));
 
-    await expect(api.chatStream('question', [], undefined, vi.fn(), vi.fn())).rejects.toThrow(
+    await expect(api.chatStream('question', undefined, vi.fn(), vi.fn())).rejects.toThrow(
       'Chat stream failed with status 429',
     );
   });

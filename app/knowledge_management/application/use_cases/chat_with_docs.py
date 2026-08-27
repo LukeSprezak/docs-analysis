@@ -37,11 +37,7 @@ class ChatWithDocsUseCase:
         self.top_k = top_k
 
     async def _prepare_context(
-        self,
-        message: str,
-        owner_id: str,
-        history: list[dict[str, Any]] | None,
-        conversation_id: str | None,
+        self, message: str, owner_id: str, conversation_id: str | None
     ) -> tuple[Conversation, list[dict[str, str]], list[Document]]:
         """Loads the conversation, builds the history, rephrases the question and searches.
 
@@ -59,13 +55,11 @@ class ChatWithDocsUseCase:
                 raise EntityNotFoundException(entity="Conversation", identifier=conversation_id)
             conversation = found
 
+        # The stored conversation is the only source of history: the caller says which
+        # conversation this turn belongs to, never what was said in it. A client-supplied
+        # history would be a second source of truth for the same state — one the server
+        # cannot check, and one that let a caller put words in the assistant's mouth.
         prior_messages = [{"role": m.role, "content": m.content} for m in conversation.messages]
-        if not prior_messages and history:
-            prior_messages = [
-                {"role": item["role"], "content": item["content"]}
-                for item in history
-                if "role" in item and "content" in item
-            ]
 
         # A context-dependent question ("and what about that?") becomes standalone, otherwise
         # retrieval searches for a meaningless phrase.
@@ -91,14 +85,10 @@ class ChatWithDocsUseCase:
         await self.conversation_repo.save(conversation, owner_id)
 
     async def execute(
-        self,
-        message: str,
-        owner_id: str,
-        history: list[dict[str, Any]] | None = None,
-        conversation_id: str | None = None,
+        self, message: str, owner_id: str, conversation_id: str | None = None
     ) -> tuple[Answer, str]:
         conversation, prior_messages, relevant_documents = await self._prepare_context(
-            message, owner_id, history, conversation_id
+            message, owner_id, conversation_id
         )
         answer_text = await self.rag_service.answer_question(
             message, relevant_documents, history=prior_messages
@@ -109,11 +99,7 @@ class ChatWithDocsUseCase:
         return answer, conversation.id
 
     async def execute_stream(
-        self,
-        message: str,
-        owner_id: str,
-        history: list[dict[str, Any]] | None = None,
-        conversation_id: str | None = None,
+        self, message: str, owner_id: str, conversation_id: str | None = None
     ) -> AsyncIterator[dict[str, Any]]:
         """Streams events: {"type":"token",...} one after another, then {"type":"done",...}.
 
@@ -121,7 +107,7 @@ class ChatWithDocsUseCase:
         is streamed token by token from the LLM — nothing blocks the event loop.
         """
         conversation, prior_messages, relevant_documents = await self._prepare_context(
-            message, owner_id, history, conversation_id
+            message, owner_id, conversation_id
         )
 
         collected_tokens: list[str] = []

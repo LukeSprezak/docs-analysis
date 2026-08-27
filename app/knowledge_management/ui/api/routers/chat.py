@@ -37,7 +37,6 @@ class ChatMessageSchema(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     conversation_id: str | None = None
-    history: list[ChatMessageSchema] | None = None
 
 
 class ChatResponse(BaseModel):
@@ -61,9 +60,8 @@ async def chat(
     use_case: Annotated[ChatWithDocsUseCase, Depends(get_chat_with_docs_use_case)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> ChatResponse:
-    history = [m.model_dump() for m in chat_request.history] if chat_request.history else None
     result, conv_id = await use_case.execute(
-        chat_request.message, current_user.id, history, chat_request.conversation_id
+        chat_request.message, current_user.id, chat_request.conversation_id
     )
     return ChatResponse(
         answer=result.text, sources=format_sources(result.sources), conversation_id=conv_id
@@ -80,7 +78,6 @@ async def chat_stream(
 ) -> StreamingResponse:
     """Streams the answer as NDJSON: {"type":"token"...} lines, then a final
     {"type":"done","conversation_id":...,"sources":[...]}."""
-    history = [m.model_dump() for m in chat_request.history] if chat_request.history else None
     owner_id = current_user.id
 
     def encode(event: dict[str, Any]) -> str:
@@ -95,7 +92,7 @@ async def chat_stream(
         return json.dumps(payload, ensure_ascii=False) + "\n"
 
     stream = use_case.execute_stream(
-        chat_request.message, owner_id, history, chat_request.conversation_id
+        chat_request.message, owner_id, chat_request.conversation_id
     )
     # The first event is pulled here, outside the response body. Everything that can still
     # fail with a status code — an unknown conversation id above all — happens on that first

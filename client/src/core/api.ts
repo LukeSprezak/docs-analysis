@@ -155,19 +155,18 @@ export const api = {
   deleteDocument: async (id: string): Promise<void> => {
     await authedFetch(`${API_BASE_URL}/documents/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
-  chat: async (message: string, history: ChatMessage[], conversation_id?: string) => {
+  chat: async (message: string, conversation_id?: string) => {
     const response = await authedFetch(`${API_BASE_URL}/chat/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ message, history, conversation_id }),
+      body: JSON.stringify({ message, conversation_id }),
     });
     return response.json();
   },
   chatStream: async (
     message: string,
-    history: ChatMessage[],
     conversation_id: string | undefined,
     onToken: (token: string) => void,
     onDone: (data: { conversation_id: string; sources: string[] }) => void,
@@ -178,7 +177,7 @@ export const api = {
         'Content-Type': 'application/json',
         ...authHeader(),
       },
-      body: JSON.stringify({ message, history, conversation_id }),
+      body: JSON.stringify({ message, conversation_id }),
     });
 
     if (response.status === 401) {

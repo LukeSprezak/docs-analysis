@@ -42,7 +42,6 @@ const ChatTab: React.FC = () => {
 
     const currentInput = input;
     const userMsg: ChatMessage = { role: 'user', content: currentInput };
-    const history = messages;
 
     setMessages(prev => [...prev, userMsg, { role: 'assistant', content: '' }]);
     setInput('');
@@ -62,7 +61,6 @@ const ChatTab: React.FC = () => {
     try {
       await api.chatStream(
         currentInput,
-        history,
         currentConvId,
         (token) => {
           setLoading(false);

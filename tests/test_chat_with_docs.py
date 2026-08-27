@@ -40,7 +40,7 @@ def test_chat_uses_persisted_history_for_condense_and_answer():
 
     uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
     answer, cid = asyncio.run(
-        uc.execute("And what's the complexity?", "owner1", history=None, conversation_id="c1")
+        uc.execute("And what's the complexity?", "owner1", conversation_id="c1")
     )
 
     # condense receives the raw question + the conversation history
@@ -71,7 +71,7 @@ def test_chat_first_turn_skips_condense():
     vec = _vec()
 
     uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
-    _, cid = asyncio.run(uc.execute("First question", "owner1", history=None, conversation_id=None))
+    _, cid = asyncio.run(uc.execute("First question", "owner1", conversation_id=None))
 
     rag.condense_question.assert_not_called()
     vec.search.assert_called_once()
@@ -80,9 +80,19 @@ def test_chat_first_turn_skips_condense():
     assert cid  # generated UUID
 
 
-def test_chat_falls_back_to_history_param_when_no_persisted_conversation():
+def test_chat_takes_history_only_from_the_stored_conversation():
+    """DUP-07/SEC-06: the caller names the conversation, never what was said in it.
+
+    The stored messages are the whole history. A turn whose conversation has none is a first
+    turn — there is no client-supplied history to fall back to, so nothing the caller sends
+    can put words in the assistant's mouth or contradict what the database holds.
+    """
     conv_repo = MagicMock()
-    conv_repo.get_by_id = AsyncMock(return_value=None)
+    conv_repo.get_by_id = AsyncMock(
+        return_value=Conversation(
+            id="c1", title="t", messages=[ChatMessage(role="user", content="stored question")]
+        )
+    )
     conv_repo.save = AsyncMock()
     rag = MagicMock()
     rag.condense_question = AsyncMock(return_value="standalone")
@@ -90,13 +100,14 @@ def test_chat_falls_back_to_history_param_when_no_persisted_conversation():
     vec = _vec()
 
     uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
-    history = [{"role": "user", "content": "q1"}, {"role": "assistant", "content": "a1"}]
-    asyncio.run(uc.execute("followup", "owner1", history=history, conversation_id=None))
+    asyncio.run(uc.execute("followup", "owner1", conversation_id="c1"))
 
-    rag.condense_question.assert_called_once()
-    assert rag.condense_question.call_args.args[1] == history
-    vec.search.assert_called_once()
-    assert vec.search.call_args.args[0] == "standalone"
+    assert rag.condense_question.call_args.args[1] == [
+        {"role": "user", "content": "stored question"}
+    ]
+    assert rag.answer_question.call_args.kwargs["history"] == [
+        {"role": "user", "content": "stored question"}
+    ]
 
 
 def test_chat_reranks_candidates_before_answering():

@@ -14,7 +14,7 @@ client = TestClient(app, raise_server_exceptions=False)
 def test_chat_stream_endpoint_emits_ndjson_tokens_then_done():
     mock_use_case = MagicMock()
 
-    async def fake_stream(message, owner_id, history, conversation_id):
+    async def fake_stream(message, owner_id, conversation_id):
         yield {"type": "token", "content": "Hel"}
         yield {"type": "token", "content": "lo"}
         yield {
@@ -51,7 +51,7 @@ def test_chat_stream_endpoint_reports_an_unknown_conversation_as_404():
     """
     mock_use_case = MagicMock()
 
-    async def fake_stream(message, owner_id, history, conversation_id):
+    async def fake_stream(message, owner_id, conversation_id):
         raise EntityNotFoundException(entity="Conversation", identifier=conversation_id)
         yield  # pragma: no cover - keeps this an async generator
 
