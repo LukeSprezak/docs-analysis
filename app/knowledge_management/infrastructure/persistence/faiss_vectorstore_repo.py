@@ -2,7 +2,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document as LangChainDocument
 from langchain_core.embeddings import Embeddings
 
-from ...domain.document_identity import parent_document_id
+from ...domain.document_identity import OWNER_SEPARATOR, parent_document_id
 from ...domain.models import Document
 from ...domain.repositories import VectorStoreRepo
 from ..text.text_chunker import TextChunker
@@ -50,10 +50,10 @@ class FaissVectorStoreRepo(VectorStoreRepo):
             LangChainDocument(page_content=chunk.content, metadata=chunk.metadata)
             for chunk in chunks
         ]
-        # The chunker numbers chunks per document ("{doc_id}::{n}"), which is unique only as
+        # The chunker numbers chunks per document ("{doc_id}#{n}"), which is unique only as
         # long as document ids are. FAISS refuses duplicate ids outright, so the owner goes
         # into the key here — two users uploading the same document id stay separate.
-        chunk_ids = [f"{owner_id}::{chunk.id}" for chunk in chunks]
+        chunk_ids = [f"{owner_id}{OWNER_SEPARATOR}{chunk.id}" for chunk in chunks]
 
         if self._vector_store is None:
             self._vector_store = FAISS.from_documents(

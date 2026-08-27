@@ -25,6 +25,7 @@ from typing import Any
 from langchain_core.runnables.config import run_in_executor
 from langchain_neo4j import Neo4jGraph
 
+from ...domain.document_identity import strip_owner_namespace
 from ...domain.entity_normalization import normalize_entity_name
 from ...domain.models import Document, GraphFragment
 from ...domain.repositories import KnowledgeGraphRepo
@@ -197,12 +198,11 @@ class Neo4jKnowledgeGraphRepo(KnowledgeGraphRepo):
     def _to_document(row: dict[str, Any], owner_id: str) -> Document:
         """Renders a triple as a sentence the LLM can read as context.
 
-        The metadata has to carry the same provenance keys a vector hit does. Document ids
-        are namespaced (`"{owner_id}::{filename}"` — see `UploadDocumentUseCase`), and both
-        citation and the evaluation harness match on the plain file name, so the prefix is
-        stripped back off here. Without `filename` every graph hit would be scored against a
-        name no golden set contains, and the graph would measure as useless no matter how
-        good it is.
+        The metadata has to carry the same provenance keys a vector hit does. Both citation
+        and the evaluation harness match on the plain file name, so the owner namespace comes
+        back off here (`strip_owner_namespace` — the rule lives in the domain). Without
+        `filename` every graph hit would be scored against a name no golden set contains, and
+        the graph would measure as useless no matter how good it is.
         """
         doc_ids = [str(doc_id) for doc_id in row.get("doc_ids") or []]
         primary_doc_id = doc_ids[0] if doc_ids else None
@@ -216,7 +216,7 @@ class Neo4jKnowledgeGraphRepo(KnowledgeGraphRepo):
                 "doc_ids": doc_ids,
                 "doc_id": primary_doc_id,
                 "filename": (
-                    primary_doc_id.removeprefix(f"{owner_id}::") if primary_doc_id else None
+                    strip_owner_namespace(primary_doc_id, owner_id) if primary_doc_id else None
                 ),
             },
         )

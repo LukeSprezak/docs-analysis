@@ -1,5 +1,6 @@
 from typing import Any
 
+from ...domain.document_identity import namespaced_document_id
 from ...domain.models import Document
 from ...domain.null_entity_extractor import NullEntityExtractor
 from ...domain.null_knowledge_graph_repo import NullKnowledgeGraphRepo
@@ -32,11 +33,11 @@ class UploadDocumentUseCase:
         owner_id: str,
         pages: list[Document] | None = None,
     ) -> Document:
-        # Namespaced per user: two users can upload a file with the same name without
-        # colliding on the key (documents.id and the chunk id in the vectors). The original
-        # name stays in the metadata ("filename") for display.
-        namespaced_document_id = f"{owner_id}::{doc_id}"
-        document = Document(id=namespaced_document_id, content=content, metadata=metadata)
+        # Namespaced per user so two users can upload a file with the same name without
+        # colliding on the key; the rule itself lives in the domain. The original name stays
+        # in the metadata ("filename") for display.
+        document_id = namespaced_document_id(owner_id, doc_id)
+        document = Document(id=document_id, content=content, metadata=metadata)
         await self.doc_repo.save(document, owner_id)
 
         # What goes into the vector store is either the pages (if the loader split them),
@@ -45,7 +46,7 @@ class UploadDocumentUseCase:
         if pages:
             vector_docs = [
                 Document(
-                    id=namespaced_document_id,
+                    id=document_id,
                     content=page.content,
                     metadata={**metadata, "page": page.metadata.get("page")},
                 )

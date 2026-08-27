@@ -11,6 +11,7 @@ about what "the same document" means.
 
 from collections.abc import Callable, Sequence
 
+from ...domain.document_identity import chunk_id
 from ...domain.models import Document
 
 # The smoothing constant from the original RRF paper. It dampens the weight of top
@@ -21,7 +22,7 @@ DEFAULT_RRF_SMOOTHING_CONSTANT = 60
 def retrieval_key(document: Document) -> str:
     """Identity of a candidate across rankings, for deduplication during fusion.
 
-    Vector and keyword hits are chunks and identify as `doc_id::chunk_index`. Graph hits are
+    Vector and keyword hits are chunks and identify as `doc_id#chunk_index`. Graph hits are
     statements built from a triple, with no chunk to point at, so they fall back to their text
     — two identical statements are the same fact regardless of which entity lookup surfaced
     them. The fallback is what keeps every metadata-less document from collapsing onto one
@@ -30,7 +31,7 @@ def retrieval_key(document: Document) -> str:
     doc_id = document.metadata.get("doc_id")
     chunk_index = document.metadata.get("chunk_index")
     if doc_id is not None and chunk_index is not None:
-        return f"{doc_id}::{chunk_index}"
+        return chunk_id(str(doc_id), chunk_index)
     return f"{document.id}::{document.content}"
 
 

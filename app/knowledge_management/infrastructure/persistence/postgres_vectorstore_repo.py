@@ -153,7 +153,7 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
 
     async def delete_by_document_id(self, doc_id: str, owner_id: str) -> None:
         # Attempt deletion through LangChain (only works when the chunk id == doc_id — rare,
-        # because chunks have ids like "{doc_id}::{index}"). Treat it as best effort: the real
+        # because chunks have ids like "{doc_id}#{index}"). Treat it as best effort: the real
         # deletion is the metadata DELETE below. A database-level error is logged rather than
         # silently swallowed (`suppress(Exception)` used to hide everything).
         try:

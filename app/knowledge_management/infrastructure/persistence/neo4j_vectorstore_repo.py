@@ -170,7 +170,7 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
     @staticmethod
     def _to_document(content: str, metadata: dict[str, Any]) -> Document:
         return Document(
-            # The node's own `id` is the chunk id ("{doc_id}::{index}"), which is not what
+            # The node's own `id` is the chunk id ("{doc_id}#{index}"), which is not what
             # callers cite — the parent id comes from the chunk metadata.
             id=parent_document_id(metadata),
             content=content,

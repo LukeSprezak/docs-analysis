@@ -1,5 +1,6 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from ...domain.document_identity import chunk_id
 from ...domain.models import Document
 
 
@@ -23,7 +24,7 @@ class TextChunker:
         """Splits a list of documents into chunks with globally unique ids.
 
         ``documents`` is usually the pages of a single file (or one document for text
-        files). The chunk index is shared across the whole file, so ``"{doc_id}::{n}"`` ids
+        files). The chunk index is shared across the whole file, so ``"{doc_id}#{n}"`` ids
         never collide between pages.
         """
         chunks: list[Document] = []
@@ -38,7 +39,7 @@ class TextChunker:
                     "chunk_index": counter,
                 }
                 chunks.append(
-                    Document(id=f"{document.id}::{counter}", content=text, metadata=metadata)
+                    Document(id=chunk_id(document.id, counter), content=text, metadata=metadata)
                 )
                 counter += 1
         return chunks
