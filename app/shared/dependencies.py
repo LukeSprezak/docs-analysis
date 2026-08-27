@@ -14,14 +14,6 @@ below for callers that run without one, such as the evaluation harness.
 import threading
 from typing import Annotated
 
-from domain.repositories import (
-    ConversationRepo,
-    DocumentRepo,
-    EntityExtractor,
-    KnowledgeGraphRepo,
-    SummaryRepo,
-    VectorStoreRepo,
-)
 from fastapi import Depends
 
 from app.knowledge_management.application.use_cases.ask_question import AskQuestionUseCase
@@ -61,7 +53,7 @@ _graph_repo: KnowledgeGraphRepo | None = None
 _entity_extractor: EntityExtractor | None = None
 
 
-def get_doc_repo() -> DocumentRepo | None:
+def get_doc_repo() -> DocumentRepo:
     global _doc_repo
     with _singleton_lock:
         if _doc_repo is None:
@@ -69,7 +61,7 @@ def get_doc_repo() -> DocumentRepo | None:
         return _doc_repo
 
 
-def get_vector_repo() -> VectorStoreRepo | None:
+def get_vector_repo() -> VectorStoreRepo:
     global _vector_repo
     with _singleton_lock:
         if _vector_repo is None:
@@ -77,7 +69,7 @@ def get_vector_repo() -> VectorStoreRepo | None:
         return _vector_repo
 
 
-def get_summary_repo() -> SummaryRepo | None:
+def get_summary_repo() -> SummaryRepo:
     global _summary_repo
     with _singleton_lock:
         if _summary_repo is None:
@@ -85,7 +77,7 @@ def get_summary_repo() -> SummaryRepo | None:
         return _summary_repo
 
 
-def get_conversation_repo() -> ConversationRepo | None:
+def get_conversation_repo() -> ConversationRepo:
     global _conversation_repo
     with _singleton_lock:
         if _conversation_repo is None:
@@ -93,7 +85,7 @@ def get_conversation_repo() -> ConversationRepo | None:
         return _conversation_repo
 
 
-def get_graph_repo() -> KnowledgeGraphRepo | None:
+def get_graph_repo() -> KnowledgeGraphRepo:
     global _graph_repo
     with _singleton_lock:
         if _graph_repo is None:
@@ -101,7 +93,7 @@ def get_graph_repo() -> KnowledgeGraphRepo | None:
         return _graph_repo
 
 
-def get_entity_extractor() -> EntityExtractor | None:
+def get_entity_extractor() -> EntityExtractor:
     global _entity_extractor
     with _singleton_lock:
         if _entity_extractor is None:

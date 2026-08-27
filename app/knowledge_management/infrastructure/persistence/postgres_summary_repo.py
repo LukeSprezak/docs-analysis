@@ -1,7 +1,12 @@
 import json
 from typing import Any
 
-from app.shared.postgres_repo import BasePostgresRepo
+from app.shared.postgres_repo import (
+    BasePostgresRepo,
+    _execute_statement,
+    _fetch_all_rows,
+    _fetch_one_row,
+)
 
 from ...domain.models import Summary
 from ...domain.repositories import SummaryRepo

@@ -64,7 +64,8 @@ async def register(
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit(settings.RATE_LIMIT_AUTH)
 async def login(
-        command: LoginCommand,
+    request: Request,
+    command: LoginCommand,
     use_case: Annotated[AuthenticateUserUseCase, Depends(get_authenticate_user_use_case)],
 ) -> TokenResponse:
     user = await use_case.execute(command.email, command.password)

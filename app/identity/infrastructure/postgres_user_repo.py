@@ -2,7 +2,7 @@ from typing import Any
 
 from app.identity.domain.models import User
 from app.identity.domain.repositories import UserRepo
-from app.shared.postgres_repo import BasePostgresRepo
+from app.shared.postgres_repo import BasePostgresRepo, _execute_statement, _fetch_one_row
 
 
 class PostgresUserRepo(BasePostgresRepo, UserRepo):
