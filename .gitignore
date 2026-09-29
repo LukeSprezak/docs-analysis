@@ -36,3 +36,4 @@ storage/
 
 # Docker
 docker-compose.override.yml
+.claude/
