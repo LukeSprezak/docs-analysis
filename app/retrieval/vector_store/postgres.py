@@ -37,6 +37,9 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
             use_jsonb=True,
             async_mode=True,
             create_extension=False,
+            # Cosine distance is 0-2; the default 1 - d is plain cosine (-1..1). 1 - d/2 is
+            # (1 + cos) / 2, the 0-1 scale the FAISS and Neo4j adapters report.
+            relevance_score_fn=lambda cosine_distance: 1 - cosine_distance / 2,
         )
 
     async def add_documents(self, documents: list[Document], owner_id: str) -> None:
