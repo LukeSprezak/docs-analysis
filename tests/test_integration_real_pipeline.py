@@ -16,6 +16,7 @@ from langchain_core.messages import AIMessage
 from app.documents.application.upload_document import UploadDocumentUseCase
 from app.retrieval.application.ask_question import AskQuestionUseCase
 from app.retrieval.application.index_document import IndexDocumentUseCase
+from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
 from app.retrieval.infrastructure.faiss_vectorstore_repo import FaissVectorStoreRepo
 from app.retrieval.infrastructure.langchain_rag_service import LangChainRAGService
 from app.retrieval.infrastructure.reranker import NoOpReranker
@@ -51,11 +52,8 @@ async def test_upload_then_ask_flows_through_real_components():
 
     fake_llm = GenericFakeChatModel(messages=iter([AIMessage(content="Quicksort: O(n log n).")]))
     ask = AskQuestionUseCase(
-        vector_repo,
+        RetrievalPipeline(vector_repo, NoOpReranker(), candidate_count=20, top_k=4),
         LangChainRAGService(llm=fake_llm),
-        NoOpReranker(),
-        candidate_count=20,
-        top_k=4,
     )
 
     answer = await ask.execute("What is the complexity of quicksort?", owner_id="o1")
@@ -83,7 +81,8 @@ async def test_retrieval_is_isolated_per_owner_end_to_end():
 
     fake_llm = GenericFakeChatModel(messages=iter([AIMessage(content="no context")]))
     ask = AskQuestionUseCase(
-        vector_repo, LangChainRAGService(llm=fake_llm), NoOpReranker(), candidate_count=20, top_k=4
+        RetrievalPipeline(vector_repo, NoOpReranker(), candidate_count=20, top_k=4),
+        LangChainRAGService(llm=fake_llm),
     )
 
     # Another user cannot search someone else's document (owner_id isolation in retrieval).

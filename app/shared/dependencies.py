@@ -28,7 +28,7 @@ from app.documents.application.delete_document import DeleteDocumentUseCase
 from app.documents.application.upload_document import UploadDocumentUseCase
 from app.documents.domain.repositories import DocumentRepo
 from app.documents.infrastructure import factory as documents_factory
-from app.retrieval.api import IndexDocumentUseCase, RemoveFromIndexUseCase
+from app.retrieval.api import IndexDocumentUseCase, RemoveFromIndexUseCase, RetrievalPipeline
 from app.retrieval.application.ask_question import AskQuestionUseCase
 from app.retrieval.domain.repositories import (
     EntityExtractor,
@@ -179,12 +179,14 @@ def get_ask_question_use_case(
     graph_repo: Annotated[KnowledgeGraphRepo, Depends(get_graph_repo)],
 ) -> AskQuestionUseCase:
     return AskQuestionUseCase(
-        vector_repo,
+        RetrievalPipeline(
+            vector_repo,
+            reranker,
+            candidate_count=settings.RETRIEVAL_CANDIDATE_COUNT,
+            top_k=settings.RETRIEVAL_TOP_K,
+            graph_repo=graph_repo,
+        ),
         rag_service,
-        reranker,
-        candidate_count=settings.RETRIEVAL_CANDIDATE_COUNT,
-        top_k=settings.RETRIEVAL_TOP_K,
-        graph_repo=graph_repo,
     )
 
 
@@ -196,13 +198,15 @@ def get_chat_with_docs_use_case(
     graph_repo: Annotated[KnowledgeGraphRepo, Depends(get_graph_repo)],
 ) -> ChatWithDocsUseCase:
     return ChatWithDocsUseCase(
-        vector_repo,
-        rag_service,
         conversation_repo,
-        reranker,
-        candidate_count=settings.RETRIEVAL_CANDIDATE_COUNT,
-        top_k=settings.RETRIEVAL_TOP_K,
-        graph_repo=graph_repo,
+        RetrievalPipeline(
+            vector_repo,
+            reranker,
+            candidate_count=settings.RETRIEVAL_CANDIDATE_COUNT,
+            top_k=settings.RETRIEVAL_TOP_K,
+            graph_repo=graph_repo,
+        ),
+        rag_service,
     )
 
 

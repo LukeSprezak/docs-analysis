@@ -1,4 +1,5 @@
 from app.retrieval.application.ask_question import AskQuestionUseCase
+from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
 from app.retrieval.domain.repositories import RerankerService
 from app.shared.kernel.document import Document
 from tests.fakes import StubRAGService, StubVectorStoreRepo
@@ -52,11 +53,7 @@ async def test_execute_fetches_candidates_reranks_and_answers():
     reranker = FakeReranker()
     rag_service = FakeRAGService()
     use_case = AskQuestionUseCase(
-        vector_repo,
-        rag_service,
-        reranker,
-        candidate_count=20,
-        top_k=2,
+        RetrievalPipeline(vector_repo, reranker, candidate_count=20, top_k=2), rag_service
     )
 
     answer = await use_case.execute("How does quicksort work?", owner_id="owner1")

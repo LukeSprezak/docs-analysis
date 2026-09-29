@@ -7,9 +7,8 @@ from app.shared.kernel.document import Document
 class RetrievalPipeline:
     """The shared `search(N candidates) → rerank → top_k` step.
 
-    Mirrors exactly the pattern the QA/chat use cases follow, so the evaluation measures the
-    retrieval that really reaches production. Shared by the retrieval and the generation
-    evaluator (DRY).
+    Used by the QA and chat use cases and by both evaluators, so the evaluation measures the
+    retrieval that really reaches production.
 
     `graph_repo` is what makes a vector-only vs vector+graph comparison possible: build two
     pipelines over the same corpus, one with the null graph and one with the real one, and the

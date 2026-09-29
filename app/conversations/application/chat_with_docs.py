@@ -5,15 +5,7 @@ from typing import Any
 
 from app.conversations.domain.models import ChatMessage, Conversation
 from app.conversations.domain.repositories import ConversationRepo
-from app.retrieval.application.candidate_retrieval import CandidateRetriever
-from app.retrieval.domain.models import Answer
-from app.retrieval.domain.null_knowledge_graph_repo import NullKnowledgeGraphRepo
-from app.retrieval.domain.repositories import (
-    KnowledgeGraphRepo,
-    RAGService,
-    RerankerService,
-    VectorStoreRepo,
-)
+from app.retrieval.api import Answer, RAGService, RetrievalPipeline
 from app.shared.exceptions import EntityNotFoundException
 from app.shared.kernel.document import Document
 
@@ -21,21 +13,13 @@ from app.shared.kernel.document import Document
 class ChatWithDocsUseCase:
     def __init__(
         self,
-        vector_repo: VectorStoreRepo,
-        rag_service: RAGService,
         conversation_repo: ConversationRepo,
-        reranker: RerankerService,
-        candidate_count: int = 20,
-        top_k: int = 4,
-        graph_repo: KnowledgeGraphRepo | None = None,
+        retrieval_pipeline: RetrievalPipeline,
+        rag_service: RAGService,
     ):
-        # See AskQuestionUseCase: the null graph keeps callers that ignore the feature simple.
-        self.retriever = CandidateRetriever(vector_repo, graph_repo or NullKnowledgeGraphRepo())
-        self.rag_service = rag_service
         self.conversation_repo = conversation_repo
-        self.reranker = reranker
-        self.candidate_count = candidate_count
-        self.top_k = top_k
+        self.retrieval_pipeline = retrieval_pipeline
+        self.rag_service = rag_service
 
     async def _prepare_context(
         self, message: str, owner_id: str, conversation_id: str | None
@@ -69,10 +53,7 @@ class ChatWithDocsUseCase:
             if prior_messages
             else message
         )
-        candidates = await self.retriever.retrieve(
-            search_query, owner_id, candidate_count=self.candidate_count
-        )
-        relevant_documents = await self.reranker.rerank(search_query, candidates, top_k=self.top_k)
+        relevant_documents = await self.retrieval_pipeline.retrieve(search_query, owner_id)
         return conversation, prior_messages, relevant_documents
 
     async def _persist_turn(
