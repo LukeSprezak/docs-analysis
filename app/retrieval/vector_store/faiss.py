@@ -63,7 +63,16 @@ class FaissVectorStoreRepo(VectorStoreRepo):
 
         if self._vector_store is None:
             self._vector_store = await to_thread.run_sync(
-                lambda: FAISS.from_documents(langchain_documents, self._embeddings, ids=chunk_ids)
+                lambda: FAISS.from_documents(
+                    langchain_documents,
+                    self._embeddings,
+                    ids=chunk_ids,
+                    # Unit vectors make L2 ranking equal cosine ranking, as in the other
+                    # adapters. The index returns squared L2 (0-4), so 1 - d/4 = (1 + cos) / 2:
+                    # a 0-1 relevance on the same scale as Neo4j.
+                    normalize_L2=True,
+                    relevance_score_fn=lambda squared_distance: 1 - squared_distance / 4,
+                )
             )
         else:
             store = self._vector_store
