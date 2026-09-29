@@ -15,6 +15,7 @@ from langchain_core.messages import AIMessage
 
 from app.documents.application.upload_document import UploadDocumentUseCase
 from app.retrieval.application.ask_question import AskQuestionUseCase
+from app.retrieval.application.index_document import IndexDocumentUseCase
 from app.retrieval.infrastructure.faiss_vectorstore_repo import FaissVectorStoreRepo
 from app.retrieval.infrastructure.langchain_rag_service import LangChainRAGService
 from app.retrieval.infrastructure.reranker import NoOpReranker
@@ -38,7 +39,7 @@ async def test_upload_then_ask_flows_through_real_components():
     )
     doc_repo = InMemoryDocRepo()
 
-    await UploadDocumentUseCase(doc_repo, vector_repo).execute(
+    await UploadDocumentUseCase(doc_repo, IndexDocumentUseCase(vector_repo)).execute(
         doc_id="algo.txt",
         content="Quicksort has O(n log n) complexity in the average case. " * 10,
         metadata={"filename": "algo.txt"},
@@ -71,7 +72,7 @@ async def test_retrieval_is_isolated_per_owner_end_to_end():
         embeddings=embeddings, chunker=TextChunker(chunk_size=10_000)
     )
     doc_repo = InMemoryDocRepo()
-    upload = UploadDocumentUseCase(doc_repo, vector_repo)
+    upload = UploadDocumentUseCase(doc_repo, IndexDocumentUseCase(vector_repo))
 
     await upload.execute(
         doc_id="secret.txt",

@@ -28,6 +28,7 @@ from app.documents.application.delete_document import DeleteDocumentUseCase
 from app.documents.application.upload_document import UploadDocumentUseCase
 from app.documents.domain.repositories import DocumentRepo
 from app.documents.infrastructure import factory as documents_factory
+from app.retrieval.api import IndexDocumentUseCase, RemoveFromIndexUseCase
 from app.retrieval.application.ask_question import AskQuestionUseCase
 from app.retrieval.domain.repositories import (
     EntityExtractor,
@@ -158,7 +159,9 @@ def get_upload_document_use_case(
     graph_repo: Annotated[KnowledgeGraphRepo, Depends(get_graph_repo)],
     entity_extractor: Annotated[EntityExtractor, Depends(get_entity_extractor)],
 ) -> UploadDocumentUseCase:
-    return UploadDocumentUseCase(doc_repo, vector_repo, graph_repo, entity_extractor)
+    return UploadDocumentUseCase(
+        doc_repo, IndexDocumentUseCase(vector_repo, graph_repo, entity_extractor)
+    )
 
 
 def get_summarize_docs_use_case(
@@ -208,7 +211,7 @@ def get_delete_document_use_case(
     vector_repo: Annotated[VectorStoreRepo, Depends(get_vector_repo)],
     graph_repo: Annotated[KnowledgeGraphRepo, Depends(get_graph_repo)],
 ) -> DeleteDocumentUseCase:
-    return DeleteDocumentUseCase(doc_repo, vector_repo, graph_repo)
+    return DeleteDocumentUseCase(doc_repo, RemoveFromIndexUseCase(vector_repo, graph_repo))
 
 
 def get_delete_summary_use_case(
