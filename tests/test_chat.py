@@ -4,10 +4,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
+from app.conversations.dependencies import (
+    get_chat_with_docs_use_case,
+    get_list_conversations_use_case,
+)
 from app.conversations.domain.models import Conversation
 from app.main import app
 from app.retrieval.domain.models import Answer
-from app.shared.dependencies import get_chat_with_docs_use_case, get_list_conversations_use_case
 from app.shared.exceptions import EntityNotFoundException
 from app.shared.kernel.document import Document
 

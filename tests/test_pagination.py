@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
+from app.documents.dependencies import get_doc_repo
 from app.main import app
 from app.shared.config import settings
-from app.shared.dependencies import get_doc_repo
 from tests.conftest import InstallOverride
 
 client = TestClient(app, raise_server_exceptions=False)

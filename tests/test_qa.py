@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.retrieval.dependencies import get_ask_question_use_case
 from app.retrieval.domain.models import Answer
-from app.shared.dependencies import get_ask_question_use_case
 from app.shared.kernel.document import Document
 
 client = TestClient(app, raise_server_exceptions=False)

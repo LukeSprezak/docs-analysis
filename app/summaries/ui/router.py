@@ -7,14 +7,14 @@ from pydantic import BaseModel
 from app.identity.dependencies import get_current_user
 from app.identity.domain.models import User
 from app.shared.config import settings
-from app.shared.dependencies import (
+from app.shared.rate_limit import limiter
+from app.summaries.application.delete_summary import DeleteSummaryUseCase
+from app.summaries.application.summarize_docs import SummarizeDocsUseCase
+from app.summaries.dependencies import (
     get_delete_summary_use_case,
     get_summarize_docs_use_case,
     get_summary_repo,
 )
-from app.shared.rate_limit import limiter
-from app.summaries.application.delete_summary import DeleteSummaryUseCase
-from app.summaries.application.summarize_docs import SummarizeDocsUseCase
 from app.summaries.domain.repositories import SummaryRepo
 
 router = APIRouter(prefix="/summarize", tags=["summarize"])

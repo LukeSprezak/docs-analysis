@@ -6,9 +6,9 @@ from pydantic import BaseModel
 from app.identity.dependencies import get_current_user
 from app.identity.domain.models import User
 from app.retrieval.application.ask_question import AskQuestionUseCase
+from app.retrieval.dependencies import get_ask_question_use_case
 from app.retrieval.ui.sources import format_sources
 from app.shared.config import settings
-from app.shared.dependencies import get_ask_question_use_case
 from app.shared.rate_limit import limiter
 
 router = APIRouter(prefix="/qa", tags=["qa"])

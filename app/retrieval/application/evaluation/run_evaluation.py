@@ -214,8 +214,8 @@ def _parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 async def main(argv: Sequence[str] | None = None) -> None:
+    from app.retrieval.dependencies import shutdown
     from app.shared.database import dispose_engine
-    from app.shared.dependencies import shutdown_repositories
 
     try:
         await _run(argv)
@@ -224,18 +224,18 @@ async def main(argv: Sequence[str] | None = None) -> None:
         # this harness builds the very same singletons. Without it the Neo4j driver and the
         # SQLAlchemy pool stay open until the process dies — and the `SystemExit` paths below
         # leave through here too, so the driver would complain from `__del__` on the way out.
-        await shutdown_repositories()
+        await shutdown()
         await dispose_engine()
 
 
 async def _run(argv: Sequence[str] | None) -> None:
     # Heavy dependencies are imported inside — the module itself imports without them (e.g. in tests).
     from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
+    from app.retrieval.dependencies import get_vector_repo
     from app.retrieval.infrastructure.answer_judge_factory import AnswerJudgeFactory
     from app.retrieval.infrastructure.langchain_rag_service import LangChainRAGService
     from app.retrieval.infrastructure.reranker_factory import RerankerFactory
     from app.shared.config import settings
-    from app.shared.dependencies import get_vector_repo
     from app.shared.llm.llm_factory import LLMFactory
 
     arguments = _parse_arguments(argv)
@@ -251,7 +251,7 @@ async def _run(argv: Sequence[str] | None) -> None:
         )
 
     if arguments.compare_graph:
-        from app.shared.dependencies import get_graph_repo
+        from app.retrieval.dependencies import get_graph_repo
 
         graph_repo = get_graph_repo()
         if isinstance(graph_repo, NullKnowledgeGraphRepo):

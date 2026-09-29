@@ -9,16 +9,16 @@ from pydantic import BaseModel
 
 from app.documents.application.delete_document import DeleteDocumentUseCase
 from app.documents.application.upload_document import UploadDocumentUseCase
+from app.documents.dependencies import (
+    get_delete_document_use_case,
+    get_doc_repo,
+    get_upload_document_use_case,
+)
 from app.documents.domain.repositories import DocumentRepo
 from app.documents.infrastructure.pymupdf_loader import PyMuPDFLoader
 from app.identity.dependencies import get_current_user
 from app.identity.domain.models import User
 from app.shared.config import settings
-from app.shared.dependencies import (
-    get_delete_document_use_case,
-    get_doc_repo,
-    get_upload_document_use_case,
-)
 from app.shared.exceptions import ValidationException
 from app.shared.rate_limit import limiter
 from app.shared.storage import safe_document_path

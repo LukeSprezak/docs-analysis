@@ -1,4 +1,4 @@
-from app.documents.domain.repositories import DocumentRepo
+from app.documents.api import DocumentRepo
 from app.shared.exceptions import ValidationException
 from app.summaries.domain.models import Summary
 from app.summaries.domain.repositories import SummarizerService, SummaryRepo

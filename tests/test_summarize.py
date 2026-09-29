@@ -3,9 +3,9 @@ from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.shared.dependencies import get_summarize_docs_use_case, get_summary_repo
 from app.shared.kernel.document import Document
 from app.shared.llm.spotlighting import CONTEXT_END_DELIMITER, CONTEXT_START_DELIMITER
+from app.summaries.dependencies import get_summarize_docs_use_case, get_summary_repo
 from app.summaries.domain.models import Summary
 from app.summaries.infrastructure.langchain_summarizer import LangChainSummarizer
 

@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
+from app.documents.dependencies import get_doc_repo, get_upload_document_use_case
 from app.main import app
-from app.shared.dependencies import get_doc_repo, get_upload_document_use_case
 from app.shared.kernel.document import Document
 
 client = TestClient(app)
