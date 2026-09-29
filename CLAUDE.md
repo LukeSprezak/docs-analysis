@@ -49,8 +49,10 @@ app/
     knowledge_graph/ neo4j, null, entity_extractor, normalization
     evaluation/      metrics, dataset, run_evaluation (CLI)
   shared/          config, database, storage, logging, llm, kernel (Document, ids)
-tests/             test_<topic>.py, fakes.py, conftest.py
-tests/contracts/   one suite per port, run against every adapter
+tests/             conftest.py, fakes.py, app-level tests (main, cors, lifespan)
+  identity/ documents/ conversations/ summaries/ retrieval/ shared/
+                   one directory per app package; test_*_contract.py = one suite per port,
+                   run against every adapter (marked `integration`)
 ```
 
 ## Structure rules

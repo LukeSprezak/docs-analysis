@@ -75,8 +75,8 @@ ignore = ["E501"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 # Adapters backed by a real server (Postgres, and later Neo4j) are parameters of the contract
-# suites in tests/contracts/. They need `docker compose up` to be running, so they are excluded
-# from the default run and executed deliberately with `pytest -m integration`.
+# suites (tests/<context>/test_*_contract.py). They need `docker compose up` to be running, so
+# they are excluded from the default run and executed deliberately with `pytest -m integration`.
 markers = [
     "integration: requires a live backing store (database container must be up)",
 ]

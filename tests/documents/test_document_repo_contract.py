@@ -18,7 +18,7 @@ There is one adapter today (`postgres`), so the whole suite is marked `integrati
 excluded from the default run (see `addopts` in pyproject.toml). Run it with a live database:
 
     POSTGRES_HOST=localhost POSTGRES_PORT=5433 uv run pytest -m integration \\
-        tests/contracts/test_document_repo_contract.py
+        tests/documents/test_document_repo_contract.py
 """
 
 import uuid

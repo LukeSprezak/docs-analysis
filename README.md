@@ -57,7 +57,7 @@ app/
     knowledge_graph/ neo4j, null, entity extraction
     evaluation/      metrics and the evaluation CLI
   shared/          config, database, storage, llm
-tests/contracts/   one suite per port, run against every adapter
+tests/<context>/   tests per bounded context; test_*_contract.py run one suite against every adapter
 ```
 
 ## Knowledge graph
