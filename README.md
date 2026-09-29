@@ -43,15 +43,19 @@ cd client && yarn test                     # frontend
 
 ## Layout
 
-Bounded contexts (domain / application / infrastructure / ui); cross-context imports only via `api.py`.
+One package per bounded context, flat modules inside (`models`, `repo`, `service`, `router`,
+`dependencies`). Other contexts import only via a context's `api.py`.
 
 ```
 app/
   identity/        users, auth, JWT
   documents/       upload, listing, deletion
-  retrieval/       vector store, knowledge graph, rerank, answers, evaluation
   conversations/   chat history
   summaries/       document summaries
+  retrieval/       ports, pipeline, indexing, rerank, answers
+    vector_store/    postgres, faiss, neo4j
+    knowledge_graph/ neo4j, null, entity extraction
+    evaluation/      metrics and the evaluation CLI
   shared/          config, database, storage, llm
 tests/contracts/   one suite per port, run against every adapter
 ```
