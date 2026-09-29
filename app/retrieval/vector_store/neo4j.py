@@ -1,6 +1,6 @@
 """Vector store backed by Neo4j's native vector index.
 
-Structurally the twin of `postgres_vectorstore_repo`: chunk before embedding, stamp the
+Structurally the twin of `vector_store/postgres.py`: chunk before embedding, stamp the
 owner onto every chunk, and combine vector with keyword hits via RRF when hybrid retrieval
 is on. Chunks live as `(:Chunk {id, text, embedding, owner_id, doc_id, chunk_index, …})`
 nodes — the metadata becomes node properties, which is what lets the Cypher below filter on
@@ -30,10 +30,10 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.runnables.config import run_in_executor
 from langchain_neo4j import Neo4jVector
 
-from app.retrieval.application.rank_fusion import fuse_documents, retrieval_key
-from app.retrieval.domain.repositories import VectorStoreRepo
-from app.retrieval.infrastructure.lucene import escape_lucene
-from app.retrieval.infrastructure.text_chunker import TextChunker
+from app.retrieval.chunker import TextChunker
+from app.retrieval.lucene import escape_lucene
+from app.retrieval.ports import VectorStoreRepo
+from app.retrieval.rank_fusion import fuse_documents, retrieval_key
 from app.shared.kernel.document import Document
 from app.shared.kernel.document_identity import parent_document_id
 

@@ -1,8 +1,8 @@
-"""Typed test doubles for the domain contracts.
+"""Typed test doubles for the Protocols (`*/repo.py`, `retrieval/ports.py`).
 
-The contracts in `domain/repositories.py` are ABCs, so a stand-in has to implement every
-abstract method to be a valid argument for a use case. These bases implement all of them
-as `NotImplementedError`; a test subclasses one and overrides only what it exercises.
+A stand-in has to implement every member of a Protocol to type-check as one. These bases
+implement all of them as `NotImplementedError`; a test subclasses one and overrides only
+what it exercises.
 """
 
 from collections.abc import AsyncIterator
@@ -10,7 +10,7 @@ from collections.abc import AsyncIterator
 from app.conversations.models import Conversation
 from app.conversations.repo import ConversationRepo
 from app.documents.repo import DocumentRepo
-from app.retrieval.domain.repositories import (
+from app.retrieval.ports import (
     AnswerJudge,
     RAGService,
     RerankerService,

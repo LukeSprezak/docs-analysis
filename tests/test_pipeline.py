@@ -1,8 +1,7 @@
-from app.retrieval.application.ask_question import AskQuestionUseCase
-from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
-from app.retrieval.domain.repositories import RerankerService
+from app.retrieval.pipeline import RetrievalPipeline
+from app.retrieval.ports import RerankerService
 from app.shared.kernel.document import Document
-from tests.fakes import StubRAGService, StubVectorStoreRepo
+from tests.fakes import StubVectorStoreRepo
 
 
 class FakeVectorStoreRepo(StubVectorStoreRepo):
@@ -26,20 +25,6 @@ class FakeReranker(RerankerService):
         return documents[:top_k]
 
 
-class FakeRAGService(StubRAGService):
-    def __init__(self) -> None:
-        self.received_documents: list[Document] | None = None
-
-    async def answer_question(
-        self,
-        question: str,
-        context: list[Document],
-        history: list[dict[str, str]] | None = None,
-    ) -> str:
-        self.received_documents = context
-        return "Answer based on the context"
-
-
 def _build_documents(count: int) -> list[Document]:
     return [
         Document(id=f"doc::{index}", content=f"excerpt {index}", metadata={})
@@ -47,22 +32,16 @@ def _build_documents(count: int) -> list[Document]:
     ]
 
 
-async def test_execute_fetches_candidates_reranks_and_answers():
+async def test_retrieve_fetches_candidates_and_reranks_to_top_k():
     documents = _build_documents(5)
     vector_repo = FakeVectorStoreRepo(documents)
     reranker = FakeReranker()
-    rag_service = FakeRAGService()
-    use_case = AskQuestionUseCase(
-        RetrievalPipeline(vector_repo, reranker, candidate_count=20, top_k=2), rag_service
-    )
+    pipeline = RetrievalPipeline(vector_repo, reranker, candidate_count=20, top_k=2)
 
-    answer = await use_case.execute("How does quicksort work?", owner_id="owner1")
+    sources = await pipeline.retrieve("How does quicksort work?", owner_id="owner1")
 
     # search retrieves a large set of candidates; rerank narrows it down to top_k.
     assert vector_repo.search_top_k == 20
     assert vector_repo.search_owner_id == "owner1"
     assert reranker.rerank_top_k == 2
-    assert len(answer.sources) == 2
-    # The RAG receives exactly the reranked fragments.
-    assert rag_service.received_documents == documents[:2]
-    assert answer.text == "Answer based on the context"
+    assert sources == documents[:2]

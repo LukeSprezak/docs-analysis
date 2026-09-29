@@ -1,7 +1,6 @@
-from app.retrieval.application.index_document import IndexDocumentUseCase
-from app.retrieval.application.remove_from_index import RemoveFromIndexUseCase
-from app.retrieval.domain.models import Entity, GraphFragment
-from app.retrieval.domain.repositories import EntityExtractor, KnowledgeGraphRepo
+from app.retrieval.indexing import IndexDocumentUseCase, RemoveFromIndexUseCase
+from app.retrieval.models import Entity, GraphFragment
+from app.retrieval.ports import EntityExtractor, KnowledgeGraphRepo
 from app.shared.kernel.document import Document
 from tests.fakes import StubVectorStoreRepo
 

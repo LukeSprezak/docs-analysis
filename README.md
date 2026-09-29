@@ -65,7 +65,7 @@ set it **before** loading documents, since entities are extracted at upload time
 
 ```bash
 docker compose exec api uv run python -m \
-  app.retrieval.application.evaluation.run_evaluation \
+  app.retrieval.evaluation.run_evaluation \
   --dataset eval/golden_set.json --owner-id <user_id> --compare-graph
 ```
 

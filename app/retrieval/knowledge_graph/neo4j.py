@@ -25,10 +25,10 @@ from typing import Any
 from langchain_core.runnables.config import run_in_executor
 from langchain_neo4j import Neo4jGraph
 
-from app.retrieval.domain.entity_normalization import normalize_entity_name
-from app.retrieval.domain.models import GraphFragment
-from app.retrieval.domain.repositories import KnowledgeGraphRepo
-from app.retrieval.infrastructure.lucene import escape_lucene
+from app.retrieval.knowledge_graph.normalization import normalize_entity_name
+from app.retrieval.lucene import escape_lucene
+from app.retrieval.models import GraphFragment
+from app.retrieval.ports import KnowledgeGraphRepo
 from app.shared.kernel.document import Document
 from app.shared.kernel.document_identity import strip_owner_namespace
 

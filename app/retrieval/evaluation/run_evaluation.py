@@ -9,7 +9,7 @@ or nightly, not an offline unit test (the metrics themselves are tested offline 
 `tests/`).
 
 Example:
-    uv run python -m app.retrieval.application.evaluation.run_evaluation \\
+    uv run python -m app.retrieval.evaluation.run_evaluation \\
         --dataset eval/golden_set.json --owner-id <user_id>
 
 A/B of the retrieval pipeline with and without the knowledge graph (same corpus, same
@@ -17,7 +17,7 @@ reranker — the graph is the only variable). Copy `eval/golden_set.template.jso
 explains the question categories the report breaks the numbers down by:
 
     KNOWLEDGE_GRAPH_PROVIDER=neo4j uv run python -m \\
-        app.retrieval.application.evaluation.run_evaluation \\
+        app.retrieval.evaluation.run_evaluation \\
         --dataset eval/golden_set.json --owner-id <user_id> --compare-graph
 """
 
@@ -27,15 +27,15 @@ import json
 from collections.abc import Sequence
 from dataclasses import asdict
 
-from app.retrieval.application.evaluation.dataset import load_examples
-from app.retrieval.application.evaluation.evaluate_generation import GenerationEvaluator
-from app.retrieval.application.evaluation.evaluate_retrieval import (
+from app.retrieval.evaluation.dataset import load_examples
+from app.retrieval.evaluation.evaluate_generation import GenerationEvaluator
+from app.retrieval.evaluation.evaluate_retrieval import (
     RetrievalEvaluator,
     group_by_category,
 )
-from app.retrieval.domain.evaluation import EvaluationExample, EvaluationReport, RetrievalMetrics
-from app.retrieval.domain.null_knowledge_graph_repo import NullKnowledgeGraphRepo
-from app.retrieval.domain.repositories import KnowledgeGraphRepo
+from app.retrieval.evaluation.models import EvaluationExample, EvaluationReport, RetrievalMetrics
+from app.retrieval.knowledge_graph.null import NullKnowledgeGraphRepo
+from app.retrieval.ports import KnowledgeGraphRepo
 
 
 async def build_report(
@@ -100,7 +100,7 @@ def format_comparison(
 
     # The per-category view is the one to read. The overall average mixes question shapes the
     # graph affects in opposite directions, so it can sit near zero while both halves moved a
-    # long way — see the category note in `domain/evaluation.py`.
+    # long way — see the category note in `evaluation/models.py`.
     baseline_by_category = group_by_category(baseline.retrieval_details)
     candidate_by_category = group_by_category(candidate.retrieval_details)
     for category, baseline_metrics in baseline_by_category.items():
@@ -230,11 +230,11 @@ async def main(argv: Sequence[str] | None = None) -> None:
 
 async def _run(argv: Sequence[str] | None) -> None:
     # Heavy dependencies are imported inside — the module itself imports without them (e.g. in tests).
-    from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
+    from app.retrieval.answer_judge import create_answer_judge
     from app.retrieval.dependencies import get_vector_repo
-    from app.retrieval.infrastructure.answer_judge_factory import AnswerJudgeFactory
-    from app.retrieval.infrastructure.langchain_rag_service import LangChainRAGService
-    from app.retrieval.infrastructure.reranker_factory import RerankerFactory
+    from app.retrieval.pipeline import RetrievalPipeline
+    from app.retrieval.rag_service import LangChainRAGService
+    from app.retrieval.reranker import create_reranker
     from app.shared.config import settings
     from app.shared.llm.llm_factory import LLMFactory
 
@@ -244,7 +244,7 @@ async def _run(argv: Sequence[str] | None) -> None:
     def build_pipeline(graph_repo: KnowledgeGraphRepo | None = None) -> RetrievalPipeline:
         return RetrievalPipeline(
             vector_repo=get_vector_repo(),
-            reranker=RerankerFactory.get_reranker(),
+            reranker=create_reranker(),
             candidate_count=settings.RETRIEVAL_CANDIDATE_COUNT,
             top_k=settings.RETRIEVAL_TOP_K,
             graph_repo=graph_repo,
@@ -284,7 +284,7 @@ async def _run(argv: Sequence[str] | None) -> None:
     pipeline = build_pipeline()
     retrieval_evaluator = RetrievalEvaluator(pipeline)
 
-    judge = AnswerJudgeFactory.get_judge()
+    judge = create_answer_judge()
     generation_evaluator = (
         GenerationEvaluator(pipeline, LangChainRAGService(llm=LLMFactory.get_llm()), judge)
         if judge is not None

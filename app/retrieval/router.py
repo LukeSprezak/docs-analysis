@@ -5,9 +5,10 @@ from pydantic import BaseModel
 
 from app.identity.dependencies import get_current_user
 from app.identity.models import User
-from app.retrieval.application.ask_question import AskQuestionUseCase
-from app.retrieval.dependencies import get_ask_question_use_case
-from app.retrieval.ui.sources import format_sources
+from app.retrieval.dependencies import get_rag_service, get_retrieval_pipeline
+from app.retrieval.pipeline import RetrievalPipeline
+from app.retrieval.ports import RAGService
+from app.retrieval.sources import format_sources
 from app.shared.config import settings
 from app.shared.rate_limit import limiter
 
@@ -28,8 +29,11 @@ class AnswerResponse(BaseModel):
 async def ask_question(
     request: Request,
     command: AskQuestionCommand,
-    use_case: Annotated[AskQuestionUseCase, Depends(get_ask_question_use_case)],
+    retrieval_pipeline: Annotated[RetrievalPipeline, Depends(get_retrieval_pipeline)],
+    rag_service: Annotated[RAGService, Depends(get_rag_service)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> AnswerResponse:
-    result = await use_case.execute(command.question, current_user.id)
-    return AnswerResponse(answer=result.text, sources=format_sources(result.sources))
+    # Retrieval is limited to the asker's own documents (owner_id).
+    sources = await retrieval_pipeline.retrieve(command.question, current_user.id)
+    answer = await rag_service.answer_question(command.question, sources)
+    return AnswerResponse(answer=answer, sources=format_sources(sources))

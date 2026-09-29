@@ -6,7 +6,7 @@ import pytest
 
 from app.conversations.chat import ChatWithDocsUseCase
 from app.conversations.models import ChatMessage, Conversation
-from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
+from app.retrieval.pipeline import RetrievalPipeline
 from app.shared.exceptions import EntityNotFoundException
 from app.shared.kernel.document import Document
 

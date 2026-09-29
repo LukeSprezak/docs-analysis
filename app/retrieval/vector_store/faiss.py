@@ -3,8 +3,8 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document as LangChainDocument
 from langchain_core.embeddings import Embeddings
 
-from app.retrieval.domain.repositories import VectorStoreRepo
-from app.retrieval.infrastructure.text_chunker import TextChunker
+from app.retrieval.chunker import TextChunker
+from app.retrieval.ports import VectorStoreRepo
 from app.shared.kernel.document import Document
 from app.shared.kernel.document_identity import OWNER_SEPARATOR, parent_document_id
 

@@ -10,7 +10,7 @@ from app.conversations import router as conversations_router
 from app.documents import router as documents_router
 from app.identity import router as identity_router
 from app.retrieval import dependencies as retrieval_dependencies
-from app.retrieval.ui import router as retrieval_router
+from app.retrieval import router as retrieval_router
 from app.shared import translations_router
 from app.shared.config import settings
 from app.shared.database import dispose_engine

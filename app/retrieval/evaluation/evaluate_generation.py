@@ -1,13 +1,13 @@
 from collections.abc import Sequence
 
-from app.retrieval.application.evaluation import retrieval_metrics
-from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
-from app.retrieval.domain.evaluation import (
+from app.retrieval.evaluation import retrieval_metrics
+from app.retrieval.evaluation.models import (
     EvaluationExample,
     GenerationExampleResult,
     GenerationMetrics,
 )
-from app.retrieval.domain.repositories import AnswerJudge, RAGService
+from app.retrieval.pipeline import RetrievalPipeline
+from app.retrieval.ports import AnswerJudge, RAGService
 
 
 class GenerationEvaluator:

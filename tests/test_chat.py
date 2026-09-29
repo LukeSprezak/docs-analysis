@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from app.conversations.dependencies import get_chat_with_docs_use_case, get_conversation_repo
 from app.conversations.models import Conversation
 from app.main import app
-from app.retrieval.domain.models import Answer
+from app.retrieval.models import Answer
 from app.shared.exceptions import EntityNotFoundException
 from app.shared.kernel.document import Document
 

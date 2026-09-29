@@ -1,9 +1,7 @@
 """Security primitives of the Identity context: password hashing (bcrypt) and JWT tokens.
 
-Pure, stateless functions used by every layer of this context (use cases hash/verify the
-password, the router and the guard create/decode the token). They live at the context root
-rather than in `infrastructure/` because they are neither a swappable adapter nor a domain
-model, just a shared cryptographic tool. Kept together so the crypto logic sits in one place
+Pure, stateless functions used across this context (the service hashes/verifies the
+password, the router and the guard create/decode the token). Kept together so the crypto logic sits in one place
 and stays testable without network or database.
 """
 

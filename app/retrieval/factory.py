@@ -1,8 +1,8 @@
 """Selects the adapters for the retrieval context: vector store, knowledge graph, extractor.
 
 This module is the *only* place that names a concrete repository class. Everything above it
-(`app.retrieval.dependencies`, the use cases, the routers) sees nothing but the ABCs from
-`domain/repositories.py`, so swapping a backing store means adding a class here and a member
+(`app.retrieval.dependencies`, the pipeline, the routers) sees nothing but the Protocols from
+`ports.py`, so swapping a backing store means adding a class here and a member
 to the provider enum — no caller changes.
 
 The choice is global and comes from the environment (`VECTOR_STORE_PROVIDER`,
@@ -13,15 +13,14 @@ a half-working system.
 
 from typing import NamedTuple
 
-from app.retrieval.domain.null_entity_extractor import NullEntityExtractor
-from app.retrieval.domain.null_knowledge_graph_repo import NullKnowledgeGraphRepo
-from app.retrieval.domain.repositories import EntityExtractor, KnowledgeGraphRepo, VectorStoreRepo
-from app.retrieval.infrastructure.embeddings_factory import EmbeddingsFactory
-from app.retrieval.infrastructure.entity_extractor import LLMEntityExtractor
-from app.retrieval.infrastructure.faiss_vectorstore_repo import FaissVectorStoreRepo
-from app.retrieval.infrastructure.neo4j_knowledge_graph_repo import Neo4jKnowledgeGraphRepo
-from app.retrieval.infrastructure.neo4j_vectorstore_repo import Neo4jVectorStoreRepo
-from app.retrieval.infrastructure.postgres_vectorstore_repo import PostgresVectorStoreRepo
+from app.retrieval.embedder import create_embeddings
+from app.retrieval.knowledge_graph.entity_extractor import LLMEntityExtractor
+from app.retrieval.knowledge_graph.neo4j import Neo4jKnowledgeGraphRepo
+from app.retrieval.knowledge_graph.null import NullEntityExtractor, NullKnowledgeGraphRepo
+from app.retrieval.ports import EntityExtractor, KnowledgeGraphRepo, VectorStoreRepo
+from app.retrieval.vector_store.faiss import FaissVectorStoreRepo
+from app.retrieval.vector_store.neo4j import Neo4jVectorStoreRepo
+from app.retrieval.vector_store.postgres import PostgresVectorStoreRepo
 from app.shared.config import settings
 from app.shared.enums import (
     KnowledgeGraphProvider,
@@ -32,7 +31,7 @@ from app.shared.llm.llm_factory import LLMFactory
 
 
 def create_vector_store_repo() -> VectorStoreRepo:
-    embeddings = EmbeddingsFactory.get_embeddings()
+    embeddings = create_embeddings()
     if settings.VECTOR_STORE_PROVIDER == VectorStoreProvider.FAISS:
         # Hybrid retrieval needs a keyword index alongside the vectors; the in-memory store
         # has none, so FAISS stays vector-only regardless of RETRIEVAL_STRATEGY.

@@ -1,7 +1,7 @@
 """Dependency injection for the retrieval context.
 
 Every provider is typed against the port, never a concrete adapter; the only code that names
-adapters is `infrastructure/factory.py`. The repositories are process-wide singletons built
+adapters is `factory.py` (plus `create_reranker` in `reranker.py`). The repositories are process-wide singletons built
 eagerly by `init()` in the application lifespan, and lazily (under a lock) for callers that
 run without one, such as the evaluation harness.
 """
@@ -11,19 +11,17 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from app.retrieval.application.ask_question import AskQuestionUseCase
-from app.retrieval.application.index_document import IndexDocumentUseCase
-from app.retrieval.application.remove_from_index import RemoveFromIndexUseCase
-from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
-from app.retrieval.domain.repositories import (
+from app.retrieval import factory
+from app.retrieval.indexing import IndexDocumentUseCase, RemoveFromIndexUseCase
+from app.retrieval.pipeline import RetrievalPipeline
+from app.retrieval.ports import (
     EntityExtractor,
     KnowledgeGraphRepo,
     RerankerService,
     VectorStoreRepo,
 )
-from app.retrieval.infrastructure import factory
-from app.retrieval.infrastructure.langchain_rag_service import LangChainRAGService
-from app.retrieval.infrastructure.reranker_factory import RerankerFactory
+from app.retrieval.rag_service import LangChainRAGService
+from app.retrieval.reranker import create_reranker
 from app.shared.config import settings
 from app.shared.llm.llm_factory import LLMFactory
 
@@ -81,7 +79,7 @@ def get_rag_service() -> LangChainRAGService:
 
 
 def get_reranker_service() -> RerankerService:
-    return RerankerFactory.get_reranker()
+    return create_reranker()
 
 
 def get_retrieval_pipeline(
@@ -96,13 +94,6 @@ def get_retrieval_pipeline(
         top_k=settings.RETRIEVAL_TOP_K,
         graph_repo=graph_repo,
     )
-
-
-def get_ask_question_use_case(
-    retrieval_pipeline: Annotated[RetrievalPipeline, Depends(get_retrieval_pipeline)],
-    rag_service: Annotated[LangChainRAGService, Depends(get_rag_service)],
-) -> AskQuestionUseCase:
-    return AskQuestionUseCase(retrieval_pipeline, rag_service)
 
 
 def get_index_document_use_case(

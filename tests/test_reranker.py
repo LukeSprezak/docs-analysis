@@ -7,14 +7,14 @@ import pytest
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
-from app.retrieval.infrastructure.reranker import (
+from app.retrieval.reranker import (
     CohereReranker,
     CohereRerankResponse,
     LLMReranker,
     LocalCrossEncoderReranker,
     NoOpReranker,
+    create_reranker,
 )
-from app.retrieval.infrastructure.reranker_factory import RerankerFactory
 from app.shared.config import settings
 from app.shared.enums import RerankerProvider
 from app.shared.kernel.document import Document
@@ -159,7 +159,7 @@ async def test_local_cross_encoder_skips_scoring_for_single_document():
 
 def test_factory_returns_noop_when_disabled():
     with patch.object(settings, "RERANKER_PROVIDER", RerankerProvider.NONE):
-        assert isinstance(RerankerFactory.get_reranker(), NoOpReranker)
+        assert isinstance(create_reranker(), NoOpReranker)
 
 
 def test_factory_cohere_requires_api_key():
@@ -168,4 +168,4 @@ def test_factory_cohere_requires_api_key():
         patch.object(settings, "COHERE_API_KEY", None),
         pytest.raises(ValueError, match="COHERE_API_KEY"),
     ):
-        RerankerFactory.get_reranker()
+        create_reranker()

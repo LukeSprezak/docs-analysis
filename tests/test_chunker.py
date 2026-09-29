@@ -1,4 +1,4 @@
-from app.retrieval.infrastructure.text_chunker import TextChunker
+from app.retrieval.chunker import TextChunker
 from app.shared.kernel.document import Document
 
 

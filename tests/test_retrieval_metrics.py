@@ -1,4 +1,4 @@
-from app.retrieval.application.evaluation import retrieval_metrics
+from app.retrieval.evaluation import retrieval_metrics
 
 
 def test_is_hit_at_k_true_when_relevant_in_top_k():

@@ -18,10 +18,10 @@ from collections.abc import AsyncIterator, Callable
 
 import pytest
 
-from app.retrieval.domain.models import Entity, GraphFragment, Relation
-from app.retrieval.domain.null_knowledge_graph_repo import NullKnowledgeGraphRepo
-from app.retrieval.domain.repositories import KnowledgeGraphRepo
-from app.retrieval.infrastructure.neo4j_knowledge_graph_repo import Neo4jKnowledgeGraphRepo
+from app.retrieval.knowledge_graph.neo4j import Neo4jKnowledgeGraphRepo
+from app.retrieval.knowledge_graph.null import NullKnowledgeGraphRepo
+from app.retrieval.models import Entity, GraphFragment, Relation
+from app.retrieval.ports import KnowledgeGraphRepo
 from tests.contracts.test_vector_store_repo_contract import (
     NEO4J_TEST_PASSWORD,
     NEO4J_TEST_URI,

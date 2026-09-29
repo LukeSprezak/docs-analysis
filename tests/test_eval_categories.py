@@ -7,19 +7,19 @@ zero while both halves moved a long way.
 
 import pytest
 
-from app.retrieval.application.evaluation.dataset import load_examples, parse_examples
-from app.retrieval.application.evaluation.evaluate_retrieval import group_by_category
-from app.retrieval.application.evaluation.run_evaluation import (
-    _parse_arguments,
-    find_regressions,
-    format_comparison,
-)
-from app.retrieval.domain.evaluation import (
+from app.retrieval.evaluation.dataset import load_examples, parse_examples
+from app.retrieval.evaluation.evaluate_retrieval import group_by_category
+from app.retrieval.evaluation.models import (
     CATEGORY_CROSS_DOCUMENT,
     CATEGORY_SINGLE_PASSAGE,
     EvaluationReport,
     RetrievalExampleResult,
     RetrievalMetrics,
+)
+from app.retrieval.evaluation.run_evaluation import (
+    _parse_arguments,
+    find_regressions,
+    format_comparison,
 )
 
 TEMPLATE_PATH = "eval/golden_set.template.json"

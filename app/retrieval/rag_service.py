@@ -4,7 +4,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-from app.retrieval.domain.repositories import RAGService
+from app.retrieval.ports import RAGService
 from app.shared.kernel.document import Document
 from app.shared.llm.spotlighting import (
     CONTEXT_END_DELIMITER,

@@ -1,6 +1,6 @@
-from app.retrieval.application.evaluation.evaluate_retrieval import RetrievalEvaluator
-from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
-from app.retrieval.domain.evaluation import EvaluationExample
+from app.retrieval.evaluation.evaluate_retrieval import RetrievalEvaluator
+from app.retrieval.evaluation.models import EvaluationExample
+from app.retrieval.pipeline import RetrievalPipeline
 from app.shared.kernel.document import Document
 from tests.fakes import PassthroughReranker, StubVectorStoreRepo
 

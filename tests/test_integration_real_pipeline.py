@@ -1,7 +1,7 @@
 """A true integration test of the RAG path — unlike `test_integration.py`
 (which mocks the use cases and only exercises FastAPI routing), here REAL components run
 end to end: `upload_document` → a real `FaissVectorStoreRepo`
-(chunking + embedding) → `AskQuestionUseCase` → a real reranker + a real `LangChainRAGService`.
+(chunking + embedding) → `RetrievalPipeline` → a real reranker + a real `LangChainRAGService`.
 
 No network: deterministic embeddings (`DeterministicFakeEmbedding`) and an LLM mocked at the
 library level (`GenericFakeChatModel`) — no use case or repo is mocked.
@@ -14,13 +14,12 @@ from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
 from app.documents.service import upload_document
-from app.retrieval.application.ask_question import AskQuestionUseCase
-from app.retrieval.application.index_document import IndexDocumentUseCase
-from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
-from app.retrieval.infrastructure.faiss_vectorstore_repo import FaissVectorStoreRepo
-from app.retrieval.infrastructure.langchain_rag_service import LangChainRAGService
-from app.retrieval.infrastructure.reranker import NoOpReranker
-from app.retrieval.infrastructure.text_chunker import TextChunker
+from app.retrieval.chunker import TextChunker
+from app.retrieval.indexing import IndexDocumentUseCase
+from app.retrieval.pipeline import RetrievalPipeline
+from app.retrieval.rag_service import LangChainRAGService
+from app.retrieval.reranker import NoOpReranker
+from app.retrieval.vector_store.faiss import FaissVectorStoreRepo
 from app.shared.kernel.document import Document
 from tests.fakes import StubDocumentRepo
 
@@ -53,17 +52,16 @@ async def test_upload_then_ask_flows_through_real_components():
     assert "o1::algo.txt" in doc_repo.documents
 
     fake_llm = GenericFakeChatModel(messages=iter([AIMessage(content="Quicksort: O(n log n).")]))
-    ask = AskQuestionUseCase(
-        RetrievalPipeline(vector_repo, NoOpReranker(), candidate_count=20, top_k=4),
-        LangChainRAGService(llm=fake_llm),
-    )
+    pipeline = RetrievalPipeline(vector_repo, NoOpReranker(), candidate_count=20, top_k=4)
+    question = "What is the complexity of quicksort?"
 
-    answer = await ask.execute("What is the complexity of quicksort?", owner_id="o1")
+    sources = await pipeline.retrieve(question, owner_id="o1")
+    answer = await LangChainRAGService(llm=fake_llm).answer_question(question, sources)
 
-    assert answer.text == "Quicksort: O(n log n)."
+    assert answer == "Quicksort: O(n log n)."
     # Retrieval really did return fragments of the uploaded document.
-    assert len(answer.sources) > 0
-    assert any("Quicksort" in source.content for source in answer.sources)
+    assert len(sources) > 0
+    assert any("Quicksort" in source.content for source in sources)
 
 
 async def test_retrieval_is_isolated_per_owner_end_to_end():
@@ -81,13 +79,9 @@ async def test_retrieval_is_isolated_per_owner_end_to_end():
         owner_id="owner",
     )
 
-    fake_llm = GenericFakeChatModel(messages=iter([AIMessage(content="no context")]))
-    ask = AskQuestionUseCase(
-        RetrievalPipeline(vector_repo, NoOpReranker(), candidate_count=20, top_k=4),
-        LangChainRAGService(llm=fake_llm),
-    )
+    pipeline = RetrievalPipeline(vector_repo, NoOpReranker(), candidate_count=20, top_k=4)
 
     # Another user cannot search someone else's document (owner_id isolation in retrieval).
-    answer = await ask.execute("Confidential ACME data?", owner_id="intruder")
+    sources = await pipeline.retrieve("Confidential ACME data?", owner_id="intruder")
 
-    assert answer.sources == []
+    assert sources == []

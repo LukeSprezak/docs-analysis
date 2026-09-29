@@ -1,6 +1,6 @@
-from app.retrieval.application.evaluation.evaluate_generation import GenerationEvaluator
-from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
-from app.retrieval.domain.evaluation import EvaluationExample
+from app.retrieval.evaluation.evaluate_generation import GenerationEvaluator
+from app.retrieval.evaluation.models import EvaluationExample
+from app.retrieval.pipeline import RetrievalPipeline
 from app.shared.kernel.document import Document
 from tests.fakes import PassthroughReranker, StubAnswerJudge, StubRAGService, StubVectorStoreRepo
 

@@ -2,7 +2,7 @@ import unicodedata
 
 import pytest
 
-from app.retrieval.domain.entity_normalization import normalize_entity_name
+from app.retrieval.knowledge_graph.normalization import normalize_entity_name
 
 
 @pytest.mark.parametrize(

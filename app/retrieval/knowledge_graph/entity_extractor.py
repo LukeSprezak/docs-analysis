@@ -6,7 +6,7 @@ per document, on top of embedding. That cost is why the graph is opt-in per depl
 rather than always on.
 
 The extractor is a port so the upload use case never branches on whether a graph is
-configured; `KNOWLEDGE_GRAPH_PROVIDER=none` wires in the domain's `NullEntityExtractor`
+configured; `KNOWLEDGE_GRAPH_PROVIDER=none` wires in `NullEntityExtractor`
 instead of this one.
 """
 
@@ -16,8 +16,8 @@ from langchain_core.documents import Document as LCDocument
 from langchain_core.language_models import BaseChatModel
 from langchain_neo4j import LLMGraphTransformer
 
-from app.retrieval.domain.models import Entity, GraphFragment, Relation
-from app.retrieval.domain.repositories import EntityExtractor
+from app.retrieval.models import Entity, GraphFragment, Relation
+from app.retrieval.ports import EntityExtractor
 from app.shared.kernel.document import Document
 
 logger = logging.getLogger(__name__)

@@ -1,4 +1,4 @@
-from app.retrieval.ui.sources import format_sources
+from app.retrieval.sources import format_sources
 from app.shared.kernel.document import Document
 
 

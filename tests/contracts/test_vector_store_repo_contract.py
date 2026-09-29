@@ -22,11 +22,11 @@ from collections.abc import AsyncIterator, Callable
 import pytest
 from langchain_core.embeddings import DeterministicFakeEmbedding
 
-from app.retrieval.domain.repositories import VectorStoreRepo
-from app.retrieval.infrastructure.faiss_vectorstore_repo import FaissVectorStoreRepo
-from app.retrieval.infrastructure.neo4j_vectorstore_repo import Neo4jVectorStoreRepo
-from app.retrieval.infrastructure.postgres_vectorstore_repo import PostgresVectorStoreRepo
-from app.retrieval.infrastructure.text_chunker import TextChunker
+from app.retrieval.chunker import TextChunker
+from app.retrieval.ports import VectorStoreRepo
+from app.retrieval.vector_store.faiss import FaissVectorStoreRepo
+from app.retrieval.vector_store.neo4j import Neo4jVectorStoreRepo
+from app.retrieval.vector_store.postgres import PostgresVectorStoreRepo
 from app.shared.config import settings
 from app.shared.database import dispose_engine
 from app.shared.kernel.document import Document

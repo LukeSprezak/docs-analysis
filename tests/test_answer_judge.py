@@ -2,7 +2,7 @@ import pytest
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
-from app.retrieval.infrastructure.answer_judge import LLMAnswerJudge
+from app.retrieval.answer_judge import LLMAnswerJudge
 from app.shared.kernel.document import Document
 
 

@@ -1,15 +1,18 @@
 import json
 import re
 from collections.abc import Sequence
-from functools import partial
-from typing import Protocol
+from functools import lru_cache, partial
+from typing import Protocol, cast
 
 import anyio
 from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
 
-from app.retrieval.domain.repositories import RerankerService
+from app.retrieval.ports import RerankerService
+from app.shared.config import settings
+from app.shared.enums import RerankerProvider
 from app.shared.kernel.document import Document
+from app.shared.llm.llm_factory import LLMFactory
 
 RERANK_SYSTEM_PROMPT = """
 Jesteś precyzyjnym systemem rerankingu. Oceniasz, które fragmenty najlepiej odpowiadają na
@@ -165,3 +168,43 @@ class LLMReranker(RerankerService):
             document for index, document in enumerate(documents) if index not in ranked_set
         )
         return reranked[:top_k]
+
+
+@lru_cache(maxsize=1)
+def _load_bge_scorer() -> CrossEncoderScorer:
+    # Model weights are loaded once (expensive) and cached. Lazy import — the
+    # `sentence-transformers` package (with torch) is only needed for this variant.
+    from sentence_transformers import CrossEncoder
+
+    # cast: sentence-transformers ships no stubs (CrossEncoder is Any), while we do know
+    # the contract we need (the predict method).
+    return cast(CrossEncoderScorer, CrossEncoder(settings.BGE_RERANKER_MODEL))
+
+
+def create_reranker() -> RerankerService:
+    match settings.RERANKER_PROVIDER:
+        case RerankerProvider.LLM:
+            return LLMReranker(llm=LLMFactory.get_llm())
+        case RerankerProvider.COHERE:
+            if not settings.COHERE_API_KEY:
+                raise ValueError("RERANKER_PROVIDER=cohere requires COHERE_API_KEY to be set")
+            # Lazy import — the `cohere` package is only needed for this variant.
+            import cohere
+
+            client = cohere.ClientV2(settings.COHERE_API_KEY)
+            # cohere returns its own rich response type; our minimal Protocol
+            # (index/results) describes only what we use — hence the type bridge.
+            return CohereReranker(
+                client=client,  # type: ignore[arg-type]
+                model=settings.COHERE_RERANK_MODEL,
+            )
+        case RerankerProvider.BGE:
+            return LocalCrossEncoderReranker(scorer=_load_bge_scorer())
+        case RerankerProvider.NONE:
+            return NoOpReranker()
+        case _:
+            # No silent degradation: a typo in RERANKER_PROVIDER would otherwise start a
+            # system that simply stops reranking, costing answer quality with nothing to
+            # report it. Turning reranking off is a decision, so it has to be spelled
+            # `none` — same rule as every other factory here.
+            raise ValueError(f"Unsupported Reranker provider: {settings.RERANKER_PROVIDER}")

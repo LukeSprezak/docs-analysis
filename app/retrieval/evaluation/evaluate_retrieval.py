@@ -1,13 +1,13 @@
 from collections.abc import Callable, Sequence
 
-from app.retrieval.application.evaluation import retrieval_metrics
-from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
-from app.retrieval.domain.evaluation import (
+from app.retrieval.evaluation import retrieval_metrics
+from app.retrieval.evaluation.models import (
     UNCATEGORIZED,
     EvaluationExample,
     RetrievalExampleResult,
     RetrievalMetrics,
 )
+from app.retrieval.pipeline import RetrievalPipeline
 from app.shared.kernel.document import Document
 from app.shared.kernel.document_identity import citation_label
 

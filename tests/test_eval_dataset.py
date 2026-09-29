@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from app.retrieval.application.evaluation.dataset import load_examples, parse_examples
+from app.retrieval.evaluation.dataset import load_examples, parse_examples
 
 
 def test_parse_examples_maps_fields():

@@ -1,5 +1,5 @@
 from app.documents.service import upload_document
-from app.retrieval.application.index_document import IndexDocumentUseCase
+from app.retrieval.indexing import IndexDocumentUseCase
 from app.shared.kernel.document import Document
 from tests.fakes import StubDocumentRepo, StubVectorStoreRepo
 

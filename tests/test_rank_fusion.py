@@ -1,4 +1,4 @@
-from app.retrieval.application.rank_fusion import fuse_documents, reciprocal_rank_fusion
+from app.retrieval.rank_fusion import fuse_documents, reciprocal_rank_fusion
 from app.shared.kernel.document import Document
 
 

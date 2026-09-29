@@ -7,9 +7,9 @@ from langchain_postgres import PGVector
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.retrieval.application.rank_fusion import fuse_documents, retrieval_key
-from app.retrieval.domain.repositories import VectorStoreRepo
-from app.retrieval.infrastructure.text_chunker import TextChunker
+from app.retrieval.chunker import TextChunker
+from app.retrieval.ports import VectorStoreRepo
+from app.retrieval.rank_fusion import fuse_documents, retrieval_key
 from app.shared.database import db_connection, get_engine
 from app.shared.kernel.document import Document
 from app.shared.kernel.document_identity import parent_document_id

@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from app.retrieval.domain.evaluation import EvaluationExample
+from app.retrieval.evaluation.models import EvaluationExample
 
 
 def parse_examples(raw_examples: list[dict[str, Any]]) -> list[EvaluationExample]:
