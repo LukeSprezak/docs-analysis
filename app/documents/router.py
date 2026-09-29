@@ -7,17 +7,18 @@ from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from app.documents.application.delete_document import DeleteDocumentUseCase
-from app.documents.application.upload_document import UploadDocumentUseCase
-from app.documents.dependencies import (
-    get_delete_document_use_case,
-    get_doc_repo,
-    get_upload_document_use_case,
-)
-from app.documents.domain.repositories import DocumentRepo
-from app.documents.infrastructure.pymupdf_loader import PyMuPDFLoader
+from app.documents.dependencies import get_doc_repo
+from app.documents.loader import PyMuPDFLoader
+from app.documents.repo import DocumentRepo
+from app.documents.service import delete_document, upload_document
 from app.identity.dependencies import get_current_user
 from app.identity.models import User
+from app.retrieval.api import (
+    IndexDocumentUseCase,
+    RemoveFromIndexUseCase,
+    get_index_document_use_case,
+    get_remove_from_index_use_case,
+)
 from app.shared.config import settings
 from app.shared.exceptions import ValidationException
 from app.shared.rate_limit import limiter
@@ -42,10 +43,11 @@ class DocumentInfo(BaseModel):
 # 201: the request creates a document, the same rule `/auth/register` follows.
 @router.post("/upload", response_model=DocumentResponse, status_code=201)
 @limiter.limit(settings.RATE_LIMIT_UPLOAD)
-async def upload_document(
+async def upload(
     request: Request,
     file: Annotated[UploadFile, File(...)],
-    use_case: Annotated[UploadDocumentUseCase, Depends(get_upload_document_use_case)],
+    doc_repo: Annotated[DocumentRepo, Depends(get_doc_repo)],
+    index_document: Annotated[IndexDocumentUseCase, Depends(get_index_document_use_case)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> DocumentResponse:
     # Sanitize the name + guard against path traversal (raises 400 for "../").
@@ -102,9 +104,11 @@ async def upload_document(
         except UnicodeDecodeError as e:
             raise ValidationException("File is not a valid UTF-8 text file") from e
 
-    # Unexpected errors (e.g. from the use case) propagate to global_exception_handler,
+    # Unexpected errors (e.g. from indexing) propagate to global_exception_handler,
     # which logs the detail and returns a generic 500 — no `str(e)` reaches the client.
-    document = await use_case.execute(
+    document = await upload_document(
+        doc_repo,
+        index_document,
         doc_id=filename,
         content=text,
         metadata={"filename": filename, "file_path": file_path},
@@ -128,10 +132,11 @@ async def list_documents(
 
 
 @router.delete("/{document_id}")
-async def delete_document(
+async def delete(
     document_id: str,
-    use_case: Annotated[DeleteDocumentUseCase, Depends(get_delete_document_use_case)],
+    doc_repo: Annotated[DocumentRepo, Depends(get_doc_repo)],
+    remove_from_index: Annotated[RemoveFromIndexUseCase, Depends(get_remove_from_index_use_case)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    await use_case.execute(document_id, current_user.id)
+    await delete_document(doc_repo, remove_from_index, document_id, current_user.id)
     return {"status": "success"}

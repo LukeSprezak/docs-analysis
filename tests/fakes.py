@@ -7,9 +7,9 @@ as `NotImplementedError`; a test subclasses one and overrides only what it exerc
 
 from collections.abc import AsyncIterator
 
-from app.conversations.domain.models import Conversation
-from app.conversations.domain.repositories import ConversationRepo
-from app.documents.domain.repositories import DocumentRepo
+from app.conversations.models import Conversation
+from app.conversations.repo import ConversationRepo
+from app.documents.repo import DocumentRepo
 from app.retrieval.domain.repositories import (
     AnswerJudge,
     RAGService,

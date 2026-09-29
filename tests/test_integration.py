@@ -2,8 +2,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
-from app.documents.dependencies import get_doc_repo, get_upload_document_use_case
+from app.documents.dependencies import get_doc_repo
 from app.main import app
+from app.retrieval.api import get_index_document_use_case
 from app.shared.kernel.document import Document
 
 client = TestClient(app)
@@ -20,17 +21,12 @@ def test_list_documents_empty(override_dependency):
 
 
 def test_upload_and_list_documents(override_dependency):
-    # Mock upload use case
-    mock_upload = MagicMock()
-    mock_upload.execute = AsyncMock(
-        return_value=Document(
-            id="test.txt", content="hello world", metadata={"filename": "test.txt"}
-        )
-    )
-    override_dependency(get_upload_document_use_case, lambda: mock_upload)
+    mock_index = MagicMock()
+    mock_index.execute = AsyncMock()
+    override_dependency(get_index_document_use_case, lambda: mock_index)
 
-    # Mock list repo
     mock_repo = MagicMock()
+    mock_repo.save = AsyncMock()
     mock_repo.list_all = AsyncMock(
         return_value=[
             Document(id="test.txt", content="hello world", metadata={"filename": "test.txt"})

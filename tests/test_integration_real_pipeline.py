@@ -1,6 +1,6 @@
 """A true integration test of the RAG path — unlike `test_integration.py`
 (which mocks the use cases and only exercises FastAPI routing), here REAL components run
-end to end: `UploadDocumentUseCase` → a real `FaissVectorStoreRepo`
+end to end: `upload_document` → a real `FaissVectorStoreRepo`
 (chunking + embedding) → `AskQuestionUseCase` → a real reranker + a real `LangChainRAGService`.
 
 No network: deterministic embeddings (`DeterministicFakeEmbedding`) and an LLM mocked at the
@@ -13,7 +13,7 @@ from langchain_core.embeddings import DeterministicFakeEmbedding
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
-from app.documents.application.upload_document import UploadDocumentUseCase
+from app.documents.service import upload_document
 from app.retrieval.application.ask_question import AskQuestionUseCase
 from app.retrieval.application.index_document import IndexDocumentUseCase
 from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
@@ -40,7 +40,9 @@ async def test_upload_then_ask_flows_through_real_components():
     )
     doc_repo = InMemoryDocRepo()
 
-    await UploadDocumentUseCase(doc_repo, IndexDocumentUseCase(vector_repo)).execute(
+    await upload_document(
+        doc_repo,
+        IndexDocumentUseCase(vector_repo),
         doc_id="algo.txt",
         content="Quicksort has O(n log n) complexity in the average case. " * 10,
         metadata={"filename": "algo.txt"},
@@ -70,9 +72,9 @@ async def test_retrieval_is_isolated_per_owner_end_to_end():
         embeddings=embeddings, chunker=TextChunker(chunk_size=10_000)
     )
     doc_repo = InMemoryDocRepo()
-    upload = UploadDocumentUseCase(doc_repo, IndexDocumentUseCase(vector_repo))
-
-    await upload.execute(
+    await upload_document(
+        doc_repo,
+        IndexDocumentUseCase(vector_repo),
         doc_id="secret.txt",
         content="Confidential ACME company data.",
         metadata={"filename": "secret.txt"},

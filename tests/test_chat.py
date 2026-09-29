@@ -4,11 +4,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
-from app.conversations.dependencies import (
-    get_chat_with_docs_use_case,
-    get_list_conversations_use_case,
-)
-from app.conversations.domain.models import Conversation
+from app.conversations.dependencies import get_chat_with_docs_use_case, get_conversation_repo
+from app.conversations.models import Conversation
 from app.main import app
 from app.retrieval.domain.models import Answer
 from app.shared.exceptions import EntityNotFoundException
@@ -112,10 +109,10 @@ def test_list_conversations(override_dependency):
         Conversation(id="c2", title="Conv 2", messages=[]),
     ]
 
-    mock_use_case = MagicMock()
-    mock_use_case.execute = AsyncMock(return_value=mock_conversations)
+    mock_repo = MagicMock()
+    mock_repo.list_all = AsyncMock(return_value=mock_conversations)
 
-    override_dependency(get_list_conversations_use_case, lambda: mock_use_case)
+    override_dependency(get_conversation_repo, lambda: mock_repo)
 
     response = client.get("/api/v1/chat/conversations")
 

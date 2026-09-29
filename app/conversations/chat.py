@@ -3,8 +3,8 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any
 
-from app.conversations.domain.models import ChatMessage, Conversation
-from app.conversations.domain.repositories import ConversationRepo
+from app.conversations.models import ChatMessage, Conversation
+from app.conversations.repo import ConversationRepo
 from app.retrieval.api import Answer, RAGService, RetrievalPipeline
 from app.shared.exceptions import EntityNotFoundException
 from app.shared.kernel.document import Document

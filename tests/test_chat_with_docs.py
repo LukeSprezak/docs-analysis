@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.conversations.application.chat_with_docs import ChatWithDocsUseCase
-from app.conversations.domain.models import ChatMessage, Conversation
+from app.conversations.chat import ChatWithDocsUseCase
+from app.conversations.models import ChatMessage, Conversation
 from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
 from app.shared.exceptions import EntityNotFoundException
 from app.shared.kernel.document import Document

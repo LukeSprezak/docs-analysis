@@ -5,8 +5,8 @@ This module is the *only* place that names a concrete repository class. Everythi
 `domain/repositories.py`, so swapping a backing store means adding a class here and a member
 to the provider enum — no caller changes.
 
-The choice is global and comes from the environment (`PERSISTENCE_PROVIDER`,
-`VECTOR_STORE_PROVIDER`), matching the existing configuration style: an explicit provider,
+The choice is global and comes from the environment (`VECTOR_STORE_PROVIDER`,
+`KNOWLEDGE_GRAPH_PROVIDER`), matching the existing configuration style: an explicit provider,
 no silent fallback. An unsupported combination raises at startup rather than degrading into
 a half-working system.
 """

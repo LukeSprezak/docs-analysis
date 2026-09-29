@@ -4,28 +4,31 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from app.documents.dependencies import get_upload_document_use_case
+from app.documents.dependencies import get_doc_repo
 from app.main import app
+from app.retrieval.api import get_index_document_use_case
 from app.shared.exceptions import ValidationException
-from app.shared.kernel.document import Document
 from app.shared.storage import is_within_storage, safe_document_path, storage_documents_dir
 from app.shared.upload_validation import validate_pdf_content, validate_upload_extension
+from tests.conftest import InstallOverride
 
 client = TestClient(app, raise_server_exceptions=False)
 
 
-def _mock_upload():
-    """A use case stub the router can actually await.
+def _install_upload_mocks(
+    override_dependency: InstallOverride, index_error: Exception | None = None
+) -> None:
+    """Stubs the upload's collaborators with mocks the router can actually await.
 
-    Every test below is rejected by validation before the use case runs, so today the stub is
-    never called. It is an `AsyncMock` anyway because the router does `await use_case.execute(...)`:
-    with a plain `MagicMock` the first test to reach the happy path would get a 500 from
-    awaiting a `Document`, and the cause would not be anywhere near the failure."""
-    mock = MagicMock()
-    mock.execute = AsyncMock(
-        return_value=Document(id="ok.txt", content="x", metadata={"filename": "ok.txt"})
-    )
-    return mock
+    Most tests below are rejected by validation before either runs. They are `AsyncMock`s
+    anyway: with a plain `MagicMock` the first test to reach the happy path would get a 500
+    from awaiting a non-awaitable, and the cause would not be anywhere near the failure."""
+    doc_repo = MagicMock()
+    doc_repo.save = AsyncMock()
+    index_document = MagicMock()
+    index_document.execute = AsyncMock(side_effect=index_error)
+    override_dependency(get_doc_repo, lambda: doc_repo)
+    override_dependency(get_index_document_use_case, lambda: index_document)
 
 
 @pytest.mark.parametrize(
@@ -56,14 +59,14 @@ def test_is_within_storage():
 
 
 def test_upload_rejects_path_traversal_filename(override_dependency):
-    override_dependency(get_upload_document_use_case, _mock_upload)
+    _install_upload_mocks(override_dependency)
     files = {"file": ("../../evil.txt", b"pwned")}
     resp = client.post("/api/v1/documents/upload", files=files)
     assert resp.status_code == 400
 
 
 def test_upload_rejects_oversized_file(override_dependency):
-    override_dependency(get_upload_document_use_case, _mock_upload)
+    _install_upload_mocks(override_dependency)
     from app.shared.config import settings
 
     too_big = b"a" * (settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024 + 1)
@@ -94,7 +97,7 @@ def test_validate_pdf_content_rejects_non_pdf(bad):
 
 
 def test_upload_rejects_disallowed_extension(override_dependency):
-    override_dependency(get_upload_document_use_case, _mock_upload)
+    _install_upload_mocks(override_dependency)
     files = {"file": ("evil.exe", b"MZ\x90\x00binary")}
     resp = client.post("/api/v1/documents/upload", files=files)
     assert resp.status_code == 400
@@ -102,18 +105,16 @@ def test_upload_rejects_disallowed_extension(override_dependency):
 
 def test_upload_rejects_pdf_with_wrong_magic_bytes(override_dependency):
     # A file with a .pdf extension but non-PDF content → rejected on magic bytes.
-    override_dependency(get_upload_document_use_case, _mock_upload)
+    _install_upload_mocks(override_dependency)
     files = {"file": ("fake.pdf", b"this is plain text pretending to be a pdf")}
     resp = client.post("/api/v1/documents/upload", files=files)
     assert resp.status_code == 400
 
 
 def test_upload_does_not_leak_exception_detail_to_client(override_dependency):
-    # An unexpected use case error carrying sensitive text must not reach the response.
+    # An unexpected indexing error carrying sensitive text must not reach the response.
     secret_detail = "secret connection string postgres://user:pass@host"
-    mock = MagicMock()
-    mock.execute = AsyncMock(side_effect=RuntimeError(secret_detail))
-    override_dependency(get_upload_document_use_case, lambda: mock)
+    _install_upload_mocks(override_dependency, index_error=RuntimeError(secret_detail))
 
     files = {"file": ("ok.txt", b"hello world")}
     resp = client.post("/api/v1/documents/upload", files=files)

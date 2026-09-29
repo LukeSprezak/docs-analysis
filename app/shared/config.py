@@ -4,7 +4,6 @@ from app.shared.enums import (
     EvalJudgeProvider,
     KnowledgeGraphProvider,
     LLMProvider,
-    PersistenceProvider,
     RerankerProvider,
     SearchStrategy,
     VectorStoreProvider,
@@ -18,8 +17,6 @@ class Settings(BaseSettings):
     LLM_PROVIDER: LLMProvider
     VECTOR_STORE_PROVIDER: VectorStoreProvider
     RERANKER_PROVIDER: RerankerProvider
-
-    PERSISTENCE_PROVIDER: PersistenceProvider
 
     KNOWLEDGE_GRAPH_PROVIDER: KnowledgeGraphProvider
 

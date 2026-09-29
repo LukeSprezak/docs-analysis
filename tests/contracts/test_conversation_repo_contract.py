@@ -26,9 +26,8 @@ from collections.abc import AsyncIterator, Callable
 import pytest
 from sqlalchemy import text
 
-from app.conversations.domain.models import ChatMessage, Conversation
-from app.conversations.domain.repositories import ConversationRepo
-from app.conversations.infrastructure.postgres_conversation_repo import PostgresConversationRepo
+from app.conversations.models import ChatMessage, Conversation
+from app.conversations.repo import ConversationRepo, PostgresConversationRepo
 from app.shared.database import db_connection, dispose_engine
 
 RepoFactory = Callable[[], ConversationRepo]

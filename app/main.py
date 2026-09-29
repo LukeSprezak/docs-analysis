@@ -6,10 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from app.conversations import dependencies as conversations_dependencies
-from app.conversations.ui import router as conversations_router
-from app.documents import dependencies as documents_dependencies
-from app.documents.ui import router as documents_router
+from app.conversations import router as conversations_router
+from app.documents import router as documents_router
 from app.identity import router as identity_router
 from app.retrieval import dependencies as retrieval_dependencies
 from app.retrieval.ui import router as retrieval_router
@@ -43,13 +41,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     it. Without this the pool was never disposed: connections stayed open until the process
     died, which a reloading dev server or a test run does repeatedly.
     """
-    documents_dependencies.init()
     retrieval_dependencies.init()
-    conversations_dependencies.init()
     yield
-    await documents_dependencies.shutdown()
     await retrieval_dependencies.shutdown()
-    await conversations_dependencies.shutdown()
     await dispose_engine()
 
 

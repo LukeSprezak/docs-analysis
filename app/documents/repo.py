@@ -1,7 +1,6 @@
 import json
-from typing import Any
+from typing import Any, Protocol
 
-from app.documents.domain.repositories import DocumentRepo
 from app.shared.kernel.document import Document
 from app.shared.postgres_repo import (
     BasePostgresRepo,
@@ -11,7 +10,17 @@ from app.shared.postgres_repo import (
 )
 
 
-class PostgresDocumentRepo(BasePostgresRepo, DocumentRepo):
+class DocumentRepo(Protocol):
+    async def save(self, document: Document, owner_id: str) -> None: ...
+
+    async def get_by_id(self, doc_id: str, owner_id: str) -> Document | None: ...
+
+    async def list_all(self, owner_id: str, limit: int = 50, offset: int = 0) -> list[Document]: ...
+
+    async def delete(self, doc_id: str, owner_id: str) -> None: ...
+
+
+class PostgresDocumentRepo(BasePostgresRepo):
     # Schema managed by Alembic (migrations/); connections come from the shared async pool
     # via BasePostgresRepo (not a per-call `psycopg.connect`).
 

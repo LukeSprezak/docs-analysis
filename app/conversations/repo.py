@@ -1,8 +1,7 @@
 import json
-from typing import Any
+from typing import Any, Protocol
 
-from app.conversations.domain.models import ChatMessage, Conversation
-from app.conversations.domain.repositories import ConversationRepo
+from app.conversations.models import ChatMessage, Conversation
 from app.shared.postgres_repo import (
     BasePostgresRepo,
     _execute_statement,
@@ -11,7 +10,19 @@ from app.shared.postgres_repo import (
 )
 
 
-class PostgresConversationRepo(BasePostgresRepo, ConversationRepo):
+class ConversationRepo(Protocol):
+    async def save(self, conversation: Conversation, owner_id: str) -> None: ...
+
+    async def get_by_id(self, conversation_id: str, owner_id: str) -> Conversation | None: ...
+
+    async def list_all(
+        self, owner_id: str, limit: int = 50, offset: int = 0
+    ) -> list[Conversation]: ...
+
+    async def delete(self, conversation_id: str, owner_id: str) -> None: ...
+
+
+class PostgresConversationRepo(BasePostgresRepo):
     # Schema managed by Alembic (migrations/); connections come from the shared async pool
     # via BasePostgresRepo (not a per-call `psycopg.connect`).
 

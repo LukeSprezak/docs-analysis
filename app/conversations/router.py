@@ -7,18 +7,9 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.conversations.application.chat_with_docs import ChatWithDocsUseCase
-from app.conversations.application.manage_conversations import (
-    DeleteConversationUseCase,
-    GetConversationUseCase,
-    ListConversationsUseCase,
-)
-from app.conversations.dependencies import (
-    get_chat_with_docs_use_case,
-    get_delete_conversation_use_case,
-    get_get_conversation_use_case,
-    get_list_conversations_use_case,
-)
+from app.conversations.chat import ChatWithDocsUseCase
+from app.conversations.dependencies import get_chat_with_docs_use_case, get_conversation_repo
+from app.conversations.repo import ConversationRepo
 from app.identity.dependencies import get_current_user
 from app.identity.models import User
 from app.retrieval.api import format_sources
@@ -117,12 +108,12 @@ async def chat_stream(
 
 @router.get("/conversations", response_model=list[ConversationSchema])
 async def list_conversations(
-    use_case: Annotated[ListConversationsUseCase, Depends(get_list_conversations_use_case)],
+    conversation_repo: Annotated[ConversationRepo, Depends(get_conversation_repo)],
     current_user: Annotated[User, Depends(get_current_user)],
     limit: Annotated[int, Query(ge=1, le=settings.LIST_MAX_LIMIT)] = settings.LIST_DEFAULT_LIMIT,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[ConversationSchema]:
-    conversations = await use_case.execute(current_user.id, limit=limit, offset=offset)
+    conversations = await conversation_repo.list_all(current_user.id, limit=limit, offset=offset)
     return [
         ConversationSchema(
             id=c.id,
@@ -140,10 +131,10 @@ async def list_conversations(
 @router.get("/conversations/{conversation_id}", response_model=ConversationSchema)
 async def get_conversation(
     conversation_id: UUID,
-    use_case: Annotated[GetConversationUseCase, Depends(get_get_conversation_use_case)],
+    conversation_repo: Annotated[ConversationRepo, Depends(get_conversation_repo)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> ConversationSchema:
-    conversation = await use_case.execute(str(conversation_id), current_user.id)
+    conversation = await conversation_repo.get_by_id(str(conversation_id), current_user.id)
     if not conversation:
         raise EntityNotFoundException(entity="Conversation", identifier=conversation_id)
     return ConversationSchema(
@@ -160,8 +151,8 @@ async def get_conversation(
 @router.delete("/conversations/{conversation_id}")
 async def delete_conversation(
     conversation_id: UUID,
-    use_case: Annotated[DeleteConversationUseCase, Depends(get_delete_conversation_use_case)],
+    conversation_repo: Annotated[ConversationRepo, Depends(get_conversation_repo)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    await use_case.execute(str(conversation_id), current_user.id)
+    await conversation_repo.delete(str(conversation_id), current_user.id)
     return {"status": "success"}

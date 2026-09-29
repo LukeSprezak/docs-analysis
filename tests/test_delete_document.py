@@ -2,7 +2,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from app.documents.application.delete_document import DeleteDocumentUseCase
+from app.documents.service import delete_document
 from app.retrieval.application.remove_from_index import RemoveFromIndexUseCase
 from app.shared.kernel.document import Document
 from app.shared.storage import storage_documents_dir
@@ -39,9 +39,7 @@ async def test_delete_own_document_removes_file_and_vectors():
     doc_repo = FakeDocRepo(document)
     vector_repo = FakeVectorRepo()
 
-    await DeleteDocumentUseCase(doc_repo, RemoveFromIndexUseCase(vector_repo)).execute(
-        "o1::a.txt", "o1"
-    )
+    await delete_document(doc_repo, RemoveFromIndexUseCase(vector_repo), "o1::a.txt", "o1")
 
     assert not Path(file_path).exists()  # File inside storage deleted
     assert vector_repo.deleted == [("o1::a.txt", "o1")]
@@ -53,9 +51,7 @@ async def test_delete_missing_or_foreign_document_is_noop():
     doc_repo = FakeDocRepo(None)
     vector_repo = FakeVectorRepo()
 
-    await DeleteDocumentUseCase(doc_repo, RemoveFromIndexUseCase(vector_repo)).execute(
-        "o1::a.txt", "intruder"
-    )
+    await delete_document(doc_repo, RemoveFromIndexUseCase(vector_repo), "o1::a.txt", "intruder")
 
     assert doc_repo.get_args == ("o1::a.txt", "intruder")
     assert vector_repo.deleted == []
@@ -71,9 +67,7 @@ async def test_delete_does_not_remove_file_outside_storage():
         doc_repo = FakeDocRepo(document)
         vector_repo = FakeVectorRepo()
 
-        await DeleteDocumentUseCase(doc_repo, RemoveFromIndexUseCase(vector_repo)).execute(
-            "o1::a.txt", "o1"
-        )
+        await delete_document(doc_repo, RemoveFromIndexUseCase(vector_repo), "o1::a.txt", "o1")
 
         # NOT deleted (protection against removing other people's files)
         assert Path(outside_path).exists()
@@ -88,9 +82,7 @@ async def test_delete_without_file_path_skips_file_removal():
     doc_repo = FakeDocRepo(document)
     vector_repo = FakeVectorRepo()
 
-    await DeleteDocumentUseCase(doc_repo, RemoveFromIndexUseCase(vector_repo)).execute(
-        "o1::a.txt", "o1"
-    )
+    await delete_document(doc_repo, RemoveFromIndexUseCase(vector_repo), "o1::a.txt", "o1")
 
     assert vector_repo.deleted == [("o1::a.txt", "o1")]
     assert doc_repo.deleted == [("o1::a.txt", "o1")]
