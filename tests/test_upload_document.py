@@ -1,5 +1,6 @@
-from app.knowledge_management.application.use_cases.upload_document import UploadDocumentUseCase
-from app.knowledge_management.domain.models import Document
+from app.documents.application.upload_document import UploadDocumentUseCase
+from app.retrieval.application.index_document import IndexDocumentUseCase
+from app.shared.kernel.document import Document
 from tests.fakes import StubDocumentRepo, StubVectorStoreRepo
 
 
@@ -23,7 +24,7 @@ async def test_upload_namespaces_document_id_and_saves_whole_document_without_pa
     doc_repo = FakeDocRepo()
     vector_repo = FakeVectorRepo()
 
-    document = await UploadDocumentUseCase(doc_repo, vector_repo).execute(
+    document = await UploadDocumentUseCase(doc_repo, IndexDocumentUseCase(vector_repo)).execute(
         doc_id="a.txt", content="content", metadata={"filename": "a.txt"}, owner_id="o1"
     )
 
@@ -49,7 +50,7 @@ async def test_upload_with_pages_carries_page_numbers_and_namespaced_id():
         Document(id="ignored", content="page 2", metadata={"page": 2}),
     ]
 
-    await UploadDocumentUseCase(doc_repo, vector_repo).execute(
+    await UploadDocumentUseCase(doc_repo, IndexDocumentUseCase(vector_repo)).execute(
         doc_id="r.pdf",
         content="whole document",
         metadata={"filename": "r.pdf"},

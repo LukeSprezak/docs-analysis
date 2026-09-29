@@ -1,7 +1,7 @@
 """Dependency injection for the Identity context.
 
 `get_current_user` lives here too — the guard exposed as this context's **public
-interface**. Other contexts (e.g. knowledge_management) import that guard, receive the
+interface**. Other contexts (e.g. documents) import that guard, receive the
 logged-in `User` and read only its `id` as `owner_id`. That makes identity the supplier and
 the other contexts its customers, without sharing domain models in the other direction.
 """

@@ -13,15 +13,15 @@ from langchain_core.embeddings import DeterministicFakeEmbedding
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
-from app.knowledge_management.application.use_cases.ask_question import AskQuestionUseCase
-from app.knowledge_management.application.use_cases.upload_document import UploadDocumentUseCase
-from app.knowledge_management.domain.models import Document
-from app.knowledge_management.infrastructure.llm.langchain_rag_service import LangChainRAGService
-from app.knowledge_management.infrastructure.llm.reranker import NoOpReranker
-from app.knowledge_management.infrastructure.persistence.faiss_vectorstore_repo import (
-    FaissVectorStoreRepo,
-)
-from app.knowledge_management.infrastructure.text.text_chunker import TextChunker
+from app.documents.application.upload_document import UploadDocumentUseCase
+from app.retrieval.application.ask_question import AskQuestionUseCase
+from app.retrieval.application.index_document import IndexDocumentUseCase
+from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
+from app.retrieval.infrastructure.faiss_vectorstore_repo import FaissVectorStoreRepo
+from app.retrieval.infrastructure.langchain_rag_service import LangChainRAGService
+from app.retrieval.infrastructure.reranker import NoOpReranker
+from app.retrieval.infrastructure.text_chunker import TextChunker
+from app.shared.kernel.document import Document
 from tests.fakes import StubDocumentRepo
 
 
@@ -40,7 +40,7 @@ async def test_upload_then_ask_flows_through_real_components():
     )
     doc_repo = InMemoryDocRepo()
 
-    await UploadDocumentUseCase(doc_repo, vector_repo).execute(
+    await UploadDocumentUseCase(doc_repo, IndexDocumentUseCase(vector_repo)).execute(
         doc_id="algo.txt",
         content="Quicksort has O(n log n) complexity in the average case. " * 10,
         metadata={"filename": "algo.txt"},
@@ -52,11 +52,8 @@ async def test_upload_then_ask_flows_through_real_components():
 
     fake_llm = GenericFakeChatModel(messages=iter([AIMessage(content="Quicksort: O(n log n).")]))
     ask = AskQuestionUseCase(
-        vector_repo,
+        RetrievalPipeline(vector_repo, NoOpReranker(), candidate_count=20, top_k=4),
         LangChainRAGService(llm=fake_llm),
-        NoOpReranker(),
-        candidate_count=20,
-        top_k=4,
     )
 
     answer = await ask.execute("What is the complexity of quicksort?", owner_id="o1")
@@ -73,7 +70,7 @@ async def test_retrieval_is_isolated_per_owner_end_to_end():
         embeddings=embeddings, chunker=TextChunker(chunk_size=10_000)
     )
     doc_repo = InMemoryDocRepo()
-    upload = UploadDocumentUseCase(doc_repo, vector_repo)
+    upload = UploadDocumentUseCase(doc_repo, IndexDocumentUseCase(vector_repo))
 
     await upload.execute(
         doc_id="secret.txt",
@@ -84,7 +81,8 @@ async def test_retrieval_is_isolated_per_owner_end_to_end():
 
     fake_llm = GenericFakeChatModel(messages=iter([AIMessage(content="no context")]))
     ask = AskQuestionUseCase(
-        vector_repo, LangChainRAGService(llm=fake_llm), NoOpReranker(), candidate_count=20, top_k=4
+        RetrievalPipeline(vector_repo, NoOpReranker(), candidate_count=20, top_k=4),
+        LangChainRAGService(llm=fake_llm),
     )
 
     # Another user cannot search someone else's document (owner_id isolation in retrieval).

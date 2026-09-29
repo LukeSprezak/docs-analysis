@@ -6,17 +6,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
+from app.conversations import dependencies as conversations_dependencies
+from app.conversations.ui import router as conversations_router
+from app.documents import dependencies as documents_dependencies
+from app.documents.ui import router as documents_router
 from app.identity.ui import auth
-from app.knowledge_management.ui.api.routers import (
-    chat,
-    documents,
-    qa,
-    summarize,
-    translations,
-)
+from app.retrieval import dependencies as retrieval_dependencies
+from app.retrieval.ui import router as retrieval_router
+from app.shared import translations_router
 from app.shared.config import settings
 from app.shared.database import dispose_engine
-from app.shared.dependencies import init_repositories, shutdown_repositories
 from app.shared.exception_handlers import (
     app_exception_handler,
     global_exception_handler,
@@ -26,6 +25,8 @@ from app.shared.exceptions import AppException
 from app.shared.logging import setup_logging
 from app.shared.middleware import LoggingMiddleware
 from app.shared.rate_limit import limiter
+from app.summaries import dependencies as summaries_dependencies
+from app.summaries.ui import router as summaries_router
 
 setup_logging()
 
@@ -43,9 +44,15 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     it. Without this the pool was never disposed: connections stayed open until the process
     died, which a reloading dev server or a test run does repeatedly.
     """
-    init_repositories()
+    documents_dependencies.init()
+    retrieval_dependencies.init()
+    conversations_dependencies.init()
+    summaries_dependencies.init()
     yield
-    await shutdown_repositories()
+    await documents_dependencies.shutdown()
+    await retrieval_dependencies.shutdown()
+    await conversations_dependencies.shutdown()
+    await summaries_dependencies.shutdown()
     await dispose_engine()
 
 
@@ -73,11 +80,11 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.add_exception_handler(Exception, global_exception_handler)
 
 app.include_router(auth.router, prefix=settings.API_V1_STR)
-app.include_router(documents.router, prefix=settings.API_V1_STR)
-app.include_router(summarize.router, prefix=settings.API_V1_STR)
-app.include_router(chat.router, prefix=settings.API_V1_STR)
-app.include_router(qa.router, prefix=settings.API_V1_STR)
-app.include_router(translations.router, prefix=settings.API_V1_STR)
+app.include_router(documents_router.router, prefix=settings.API_V1_STR)
+app.include_router(summaries_router.router, prefix=settings.API_V1_STR)
+app.include_router(conversations_router.router, prefix=settings.API_V1_STR)
+app.include_router(retrieval_router.router, prefix=settings.API_V1_STR)
+app.include_router(translations_router.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/")

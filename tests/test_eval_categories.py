@@ -7,14 +7,14 @@ zero while both halves moved a long way.
 
 import pytest
 
-from app.knowledge_management.application.evaluation.dataset import load_examples, parse_examples
-from app.knowledge_management.application.evaluation.evaluate_retrieval import group_by_category
-from app.knowledge_management.application.evaluation.run_evaluation import (
+from app.retrieval.application.evaluation.dataset import load_examples, parse_examples
+from app.retrieval.application.evaluation.evaluate_retrieval import group_by_category
+from app.retrieval.application.evaluation.run_evaluation import (
     _parse_arguments,
     find_regressions,
     format_comparison,
 )
-from app.knowledge_management.domain.evaluation import (
+from app.retrieval.domain.evaluation import (
     CATEGORY_CROSS_DOCUMENT,
     CATEGORY_SINGLE_PASSAGE,
     EvaluationReport,

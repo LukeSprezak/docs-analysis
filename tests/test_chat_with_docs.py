@@ -4,9 +4,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.knowledge_management.application.use_cases.chat_with_docs import ChatWithDocsUseCase
-from app.knowledge_management.domain.models import ChatMessage, Conversation, Document
+from app.conversations.application.chat_with_docs import ChatWithDocsUseCase
+from app.conversations.domain.models import ChatMessage, Conversation
+from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
 from app.shared.exceptions import EntityNotFoundException
+from app.shared.kernel.document import Document
 
 
 def _vec(docs: list[Document] | None = None) -> MagicMock:
@@ -38,7 +40,7 @@ def test_chat_uses_persisted_history_for_condense_and_answer():
     rag.answer_question = AsyncMock(return_value="O(n log n)")
     vec = _vec([Document(id="d", content="...", metadata={})])
 
-    uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
+    uc = ChatWithDocsUseCase(conv_repo, RetrievalPipeline(vec, _passthrough_reranker()), rag)
     answer, cid = asyncio.run(
         uc.execute("And what's the complexity?", "owner1", conversation_id="c1")
     )
@@ -70,7 +72,7 @@ def test_chat_first_turn_skips_condense():
     rag.answer_question = AsyncMock(return_value="ans")
     vec = _vec()
 
-    uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
+    uc = ChatWithDocsUseCase(conv_repo, RetrievalPipeline(vec, _passthrough_reranker()), rag)
     _, cid = asyncio.run(uc.execute("First question", "owner1", conversation_id=None))
 
     rag.condense_question.assert_not_called()
@@ -99,7 +101,7 @@ def test_chat_takes_history_only_from_the_stored_conversation():
     rag.answer_question = AsyncMock(return_value="a")
     vec = _vec()
 
-    uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
+    uc = ChatWithDocsUseCase(conv_repo, RetrievalPipeline(vec, _passthrough_reranker()), rag)
     asyncio.run(uc.execute("followup", "owner1", conversation_id="c1"))
 
     assert rag.condense_question.call_args.args[1] == [
@@ -124,7 +126,9 @@ def test_chat_reranks_candidates_before_answering():
         side_effect=lambda query, documents, top_k=4: list(reversed(documents))[:2]
     )
 
-    uc = ChatWithDocsUseCase(vec, rag, conv_repo, reranker, candidate_count=5, top_k=2)
+    uc = ChatWithDocsUseCase(
+        conv_repo, RetrievalPipeline(vec, reranker, candidate_count=5, top_k=2), rag
+    )
     answer, _ = asyncio.run(uc.execute("q", "owner1", conversation_id=None))
 
     # the reranker receives the candidates from the vector search
@@ -149,7 +153,7 @@ def test_execute_stream_yields_tokens_then_done_and_persists_full_answer():
     rag.astream_answer = fake_astream
     vec = _vec([Document(id="d", content="c", metadata={"filename": "d"})])
 
-    uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
+    uc = ChatWithDocsUseCase(conv_repo, RetrievalPipeline(vec, _passthrough_reranker()), rag)
 
     async def collect() -> list[dict[str, Any]]:
         return [
@@ -189,7 +193,7 @@ def test_chat_rejects_a_conversation_id_the_caller_does_not_own():
     rag.answer_question = AsyncMock(return_value="ans")
     vec = _vec()
 
-    uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
+    uc = ChatWithDocsUseCase(conv_repo, RetrievalPipeline(vec, _passthrough_reranker()), rag)
 
     with pytest.raises(EntityNotFoundException):
         asyncio.run(uc.execute("take it over", "attacker", conversation_id="someone-elses-id"))
@@ -210,7 +214,7 @@ def test_execute_stream_rejects_a_conversation_id_the_caller_does_not_own():
     rag.astream_answer = fake_astream
     vec = _vec()
 
-    uc = ChatWithDocsUseCase(vec, rag, conv_repo, _passthrough_reranker())
+    uc = ChatWithDocsUseCase(conv_repo, RetrievalPipeline(vec, _passthrough_reranker()), rag)
 
     async def collect() -> list[dict[str, Any]]:
         return [

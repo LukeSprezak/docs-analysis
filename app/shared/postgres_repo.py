@@ -5,8 +5,8 @@ a connection from the pool, run the query, fetch the row(s). The base exposes th
 higher-level operations (`_execute_statement`, `_fetch_one_row`, `_fetch_all_rows`) plus a
 helper for deserializing JSONB columns.
 
-The base lives in `app.shared` because both contexts (`knowledge_management` and
-`identity`) use the pool (`app.shared.database`) — a shared parent does not couple them
+The base lives in `app.shared` because every context with records (`identity`, `documents`,
+`conversations`, `summaries`) uses the pool (`app.shared.database`) — a shared parent does not couple them
 to each other.
 """
 

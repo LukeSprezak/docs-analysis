@@ -7,17 +7,17 @@ import pytest
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
-from app.knowledge_management.domain.models import Document
-from app.knowledge_management.infrastructure.llm.reranker import (
+from app.retrieval.infrastructure.reranker import (
     CohereReranker,
     CohereRerankResponse,
     LLMReranker,
     LocalCrossEncoderReranker,
     NoOpReranker,
 )
-from app.knowledge_management.infrastructure.llm.reranker_factory import RerankerFactory
+from app.retrieval.infrastructure.reranker_factory import RerankerFactory
 from app.shared.config import settings
 from app.shared.enums import RerankerProvider
+from app.shared.kernel.document import Document
 
 
 def _docs(count: int) -> list[Document]:

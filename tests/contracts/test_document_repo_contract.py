@@ -27,12 +27,10 @@ from collections.abc import AsyncIterator, Callable
 import pytest
 from sqlalchemy import text
 
-from app.knowledge_management.domain.models import Document
-from app.knowledge_management.domain.repositories import DocumentRepo
-from app.knowledge_management.infrastructure.persistence.postgres_document_repo import (
-    PostgresDocumentRepo,
-)
+from app.documents.domain.repositories import DocumentRepo
+from app.documents.infrastructure.postgres_document_repo import PostgresDocumentRepo
 from app.shared.database import db_connection, dispose_engine
+from app.shared.kernel.document import Document
 
 RepoFactory = Callable[[], DocumentRepo]
 

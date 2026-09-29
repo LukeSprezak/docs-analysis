@@ -82,18 +82,26 @@ are `db` and `graph` instead.
 
 ## Layout
 
-Two bounded contexts, each in domain / application / infrastructure / ui layers:
+Five bounded contexts, each in domain / application / infrastructure / ui layers. A context
+imports another only through its `api.py`:
 
 ```
 app/
   identity/              users, registration, login, JWT
-  knowledge_management/  documents, retrieval, chat, summaries, the knowledge graph
-  shared/                config, database pool, exceptions, storage, rate limiting
+  documents/             upload, listing, deletion of stored documents
+  retrieval/             vector store, knowledge graph, rerank, answers, evaluation harness
+  conversations/         chat and its persisted history
+  summaries/             summaries of selected documents
+  shared/                config, database pool, exceptions, storage, rate limiting,
+                         kernel/ (Document and its id rules), llm/ (model factory)
 client/                  React SPA
 migrations/              Alembic
 eval/                    golden set for the evaluation harness
 tests/  contracts/       one suite per port, parametrized over adapters
 ```
+
+Dependencies point one way: documents → retrieval, conversations → retrieval,
+summaries → documents.
 
 The domain layer holds the rules that outlive any adapter — how a document id is built and
 taken apart (`document_identity.py`), how an entity name is normalized
@@ -116,7 +124,7 @@ answer relevance) need an LLM judge and are enabled separately.
 
 ```bash
 docker compose exec api uv run python -m \
-  app.knowledge_management.application.evaluation.run_evaluation \
+  app.retrieval.application.evaluation.run_evaluation \
   --dataset eval/golden_set.json --owner-id <user_id> \
   --compare-graph --json eval/last-run.json
 ```

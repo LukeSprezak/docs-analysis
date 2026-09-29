@@ -1,5 +1,5 @@
-from app.knowledge_management.domain.models import Document
-from app.knowledge_management.ui.api.sources import format_sources
+from app.retrieval.ui.sources import format_sources
+from app.shared.kernel.document import Document
 
 
 def test_format_sources_uses_filename_and_page():

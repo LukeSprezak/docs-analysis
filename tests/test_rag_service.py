@@ -3,12 +3,9 @@ import asyncio
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
-from app.knowledge_management.domain.models import Document
-from app.knowledge_management.infrastructure.llm.langchain_rag_service import LangChainRAGService
-from app.knowledge_management.infrastructure.llm.spotlighting import (
-    CONTEXT_END_DELIMITER,
-    CONTEXT_START_DELIMITER,
-)
+from app.retrieval.infrastructure.langchain_rag_service import LangChainRAGService
+from app.shared.kernel.document import Document
+from app.shared.llm.spotlighting import CONTEXT_END_DELIMITER, CONTEXT_START_DELIMITER
 
 
 def _llm(*contents: str) -> GenericFakeChatModel:

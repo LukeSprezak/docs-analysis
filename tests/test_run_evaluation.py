@@ -1,14 +1,9 @@
-from app.knowledge_management.application.evaluation.evaluate_generation import (
-    GenerationEvaluator,
-)
-from app.knowledge_management.application.evaluation.evaluate_retrieval import RetrievalEvaluator
-from app.knowledge_management.application.evaluation.retrieval_pipeline import RetrievalPipeline
-from app.knowledge_management.application.evaluation.run_evaluation import (
-    build_report,
-    format_report,
-)
-from app.knowledge_management.domain.evaluation import EvaluationExample
-from app.knowledge_management.domain.models import Document
+from app.retrieval.application.evaluation.evaluate_generation import GenerationEvaluator
+from app.retrieval.application.evaluation.evaluate_retrieval import RetrievalEvaluator
+from app.retrieval.application.evaluation.run_evaluation import build_report, format_report
+from app.retrieval.application.retrieval_pipeline import RetrievalPipeline
+from app.retrieval.domain.evaluation import EvaluationExample
+from app.shared.kernel.document import Document
 from tests.fakes import PassthroughReranker, StubAnswerJudge, StubRAGService, StubVectorStoreRepo
 
 

@@ -26,11 +26,9 @@ from collections.abc import AsyncIterator, Callable
 import pytest
 from sqlalchemy import text
 
-from app.knowledge_management.domain.repositories import SummaryRepo
-from app.knowledge_management.infrastructure.persistence.postgres_summary_repo import (
-    PostgresSummaryRepo,
-)
 from app.shared.database import db_connection, dispose_engine
+from app.summaries.domain.repositories import SummaryRepo
+from app.summaries.infrastructure.postgres_summary_repo import PostgresSummaryRepo
 
 RepoFactory = Callable[[], SummaryRepo]
 

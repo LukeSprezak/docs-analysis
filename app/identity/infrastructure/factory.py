@@ -1,8 +1,8 @@
 """Selects the persistence adapter for the Identity context.
 
-The counterpart of `knowledge_management/infrastructure/persistence/factory.py`: the only
+The counterpart of the other contexts' `infrastructure/factory.py`: the only
 place naming a concrete `UserRepo` implementation, driven by the same global
-`PERSISTENCE_PROVIDER` switch so both contexts move to a new backing store together.
+`PERSISTENCE_PROVIDER` switch so all contexts move to a new backing store together.
 """
 
 from app.identity.domain.repositories import UserRepo

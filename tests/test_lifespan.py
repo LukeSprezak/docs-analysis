@@ -7,8 +7,7 @@ does, which is why the omission went unnoticed: the pool was simply never dispos
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.shared import dependencies
-from app.shared.dependencies import shutdown_repositories
+from app.retrieval import dependencies
 from tests.fakes import StubVectorStoreRepo
 
 
@@ -26,7 +25,7 @@ async def test_shutdown_closes_the_vector_repo_and_clears_singletons(monkeypatch
     repo = ClosableVectorRepo()
     monkeypatch.setattr(dependencies, "_vector_repo", repo)
 
-    await shutdown_repositories()
+    await dependencies.shutdown()
 
     assert repo.closed
     # Cleared, so the next startup builds a repo that is not backed by a closed driver.
