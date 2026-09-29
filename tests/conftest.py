@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 
 from app.identity.dependencies import get_current_user
-from app.identity.domain.models import User
+from app.identity.models import User
 from app.main import app
 from app.shared.config import settings
 from app.shared.rate_limit import limiter

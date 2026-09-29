@@ -26,9 +26,8 @@ from collections.abc import AsyncIterator, Callable
 import pytest
 from sqlalchemy import text
 
-from app.identity.domain.models import User
-from app.identity.domain.repositories import UserRepo
-from app.identity.infrastructure.postgres_user_repo import PostgresUserRepo
+from app.identity.models import User
+from app.identity.repo import PostgresUserRepo, UserRepo
 from app.shared.database import db_connection, dispose_engine
 
 RepoFactory = Callable[[], UserRepo]

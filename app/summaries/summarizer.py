@@ -1,3 +1,5 @@
+from typing import Protocol
+
 from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -8,7 +10,6 @@ from app.shared.llm.spotlighting import (
     SECURITY_PROMPT_SECTION,
     strip_delimiters,
 )
-from app.summaries.domain.repositories import SummarizerService
 
 SUMMARIZE_SYSTEM_PROMPT = f"""
 Tworzysz zwięzłe i przejrzyste podsumowania dokumentów.
@@ -17,7 +18,11 @@ kluczowe informacje.
 {SECURITY_PROMPT_SECTION}"""
 
 
-class LangChainSummarizer(SummarizerService):
+class SummarizerService(Protocol):
+    async def summarize(self, documents: list[Document]) -> str: ...
+
+
+class LangChainSummarizer:
     def __init__(self, llm: BaseChatModel):
         self.llm = llm
 

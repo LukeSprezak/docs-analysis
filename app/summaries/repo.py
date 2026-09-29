@@ -1,5 +1,5 @@
 import json
-from typing import Any
+from typing import Any, Protocol
 
 from app.shared.postgres_repo import (
     BasePostgresRepo,
@@ -7,11 +7,25 @@ from app.shared.postgres_repo import (
     _fetch_all_rows,
     _fetch_one_row,
 )
-from app.summaries.domain.models import Summary
-from app.summaries.domain.repositories import SummaryRepo
+from app.summaries.models import Summary
 
 
-class PostgresSummaryRepo(BasePostgresRepo, SummaryRepo):
+class SummaryRepo(Protocol):
+    async def save(self, text: str, document_ids: list[str], owner_id: str) -> Summary:
+        """Stores a new summary and returns it, with the id and timestamp the store assigned.
+
+        Takes the content rather than a `Summary`: the identity is the store's to mint, so
+        there is no half-built summary for a caller to hold on to."""
+        ...
+
+    async def get_by_id(self, summary_id: str, owner_id: str) -> Summary | None: ...
+
+    async def list_all(self, owner_id: str, limit: int = 50, offset: int = 0) -> list[Summary]: ...
+
+    async def delete(self, summary_id: str, owner_id: str) -> None: ...
+
+
+class PostgresSummaryRepo(BasePostgresRepo):
     # Schema managed by Alembic (migrations/); connections come from the shared async pool
     # via BasePostgresRepo (not a per-call `psycopg.connect`).
 

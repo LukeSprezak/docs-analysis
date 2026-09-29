@@ -2,9 +2,9 @@ import pytest
 
 from app.shared.exceptions import ValidationException
 from app.shared.kernel.document import Document
-from app.summaries.application.summarize_docs import SummarizeDocsUseCase
-from app.summaries.domain.models import Summary
-from app.summaries.domain.repositories import SummarizerService
+from app.summaries.models import Summary
+from app.summaries.service import summarize_docs
+from app.summaries.summarizer import SummarizerService
 from tests.fakes import StubDocumentRepo, StubSummaryRepo
 
 
@@ -47,8 +47,8 @@ async def test_summarize_gathers_only_existing_owned_documents_and_saves():
     summarizer = FakeSummarizer()
     summary_repo = FakeSummaryRepo()
 
-    summary = await SummarizeDocsUseCase(doc_repo, summarizer, summary_repo).execute(
-        ["a", "missing", "b"], owner_id="o1"
+    summary = await summarize_docs(
+        doc_repo, summarizer, summary_repo, ["a", "missing", "b"], owner_id="o1"
     )
 
     # get_by_id filters by owner; "missing" returns None and is skipped.
@@ -73,9 +73,7 @@ async def test_summarize_refuses_when_no_requested_document_was_found():
     summary_repo = FakeSummaryRepo()
 
     with pytest.raises(ValidationException):
-        await SummarizeDocsUseCase(doc_repo, summarizer, summary_repo).execute(
-            ["missing"], owner_id="o1"
-        )
+        await summarize_docs(doc_repo, summarizer, summary_repo, ["missing"], owner_id="o1")
 
     assert summarizer.received_documents is None
     assert summary_repo.saved is None

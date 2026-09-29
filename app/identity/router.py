@@ -3,13 +3,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.identity.application.authenticate_user import AuthenticateUserUseCase
-from app.identity.application.register_user import RegisterUserUseCase
-from app.identity.dependencies import (
-    get_authenticate_user_use_case,
-    get_register_user_use_case,
-)
+from app.identity.dependencies import get_user_repo
+from app.identity.repo import UserRepo
 from app.identity.security import create_access_token
+from app.identity.service import authenticate_user, register_user
 from app.shared.config import settings
 from app.shared.rate_limit import limiter
 
@@ -51,9 +48,9 @@ class TokenResponse(BaseModel):
 async def register(
     request: Request,
     command: RegisterCommand,
-    use_case: Annotated[RegisterUserUseCase, Depends(get_register_user_use_case)],
+    user_repo: Annotated[UserRepo, Depends(get_user_repo)],
 ) -> TokenResponse:
-    user = await use_case.execute(command.email, command.password)
+    user = await register_user(user_repo, command.email, command.password)
     return TokenResponse(
         access_token=create_access_token(user.id),
         user_id=user.id,
@@ -66,9 +63,9 @@ async def register(
 async def login(
     request: Request,
     command: LoginCommand,
-    use_case: Annotated[AuthenticateUserUseCase, Depends(get_authenticate_user_use_case)],
+    user_repo: Annotated[UserRepo, Depends(get_user_repo)],
 ) -> TokenResponse:
-    user = await use_case.execute(command.email, command.password)
+    user = await authenticate_user(user_repo, command.email, command.password)
     return TokenResponse(
         access_token=create_access_token(user.id),
         user_id=user.id,

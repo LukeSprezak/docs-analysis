@@ -17,8 +17,8 @@ from app.retrieval.domain.repositories import (
     VectorStoreRepo,
 )
 from app.shared.kernel.document import Document
-from app.summaries.domain.models import Summary
-from app.summaries.domain.repositories import SummaryRepo
+from app.summaries.models import Summary
+from app.summaries.repo import SummaryRepo
 
 
 class StubDocumentRepo(DocumentRepo):

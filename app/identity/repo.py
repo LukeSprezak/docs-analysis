@@ -1,11 +1,18 @@
-from typing import Any
+from typing import Any, Protocol
 
-from app.identity.domain.models import User
-from app.identity.domain.repositories import UserRepo
+from app.identity.models import User
 from app.shared.postgres_repo import BasePostgresRepo, _execute_statement, _fetch_one_row
 
 
-class PostgresUserRepo(BasePostgresRepo, UserRepo):
+class UserRepo(Protocol):
+    async def get_by_email(self, email: str) -> User | None: ...
+
+    async def get_by_id(self, user_id: str) -> User | None: ...
+
+    async def save(self, user: User) -> None: ...
+
+
+class PostgresUserRepo(BasePostgresRepo):
     async def get_by_email(self, email: str) -> User | None:
         row = await _fetch_one_row(
             "SELECT id, email, hashed_password, created_at FROM users WHERE email = :email",

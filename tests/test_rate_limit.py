@@ -9,8 +9,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from app.identity.dependencies import get_authenticate_user_use_case
-from app.identity.domain.models import User
+from app.identity.dependencies import get_user_repo
+from app.identity.models import User
+from app.identity.security import hash_password
 from app.main import app
 from app.shared.config import settings
 from app.shared.rate_limit import limiter
@@ -34,11 +35,13 @@ def rate_limiting_enabled():
 
 
 def test_auth_login_blocks_after_limit(rate_limiting_enabled, override_dependency):
-    mock_use_case = MagicMock()
-    mock_use_case.execute = AsyncMock(
-        return_value=User(id="u1", email="user@example.com", hashed_password="x")
+    mock_repo = MagicMock()
+    mock_repo.get_by_email = AsyncMock(
+        return_value=User(
+            id="u1", email="user@example.com", hashed_password=hash_password("secret")
+        )
     )
-    override_dependency(get_authenticate_user_use_case, lambda: mock_use_case)
+    override_dependency(get_user_repo, lambda: mock_repo)
 
     allowed = _parse_limit_per_window(settings.RATE_LIMIT_AUTH)
     payload = {"email": "user@example.com", "password": "secret"}

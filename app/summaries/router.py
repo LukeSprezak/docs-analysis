@@ -4,18 +4,15 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
+from app.documents.api import DocumentRepo, get_doc_repo
 from app.identity.dependencies import get_current_user
-from app.identity.domain.models import User
+from app.identity.models import User
 from app.shared.config import settings
 from app.shared.rate_limit import limiter
-from app.summaries.application.delete_summary import DeleteSummaryUseCase
-from app.summaries.application.summarize_docs import SummarizeDocsUseCase
-from app.summaries.dependencies import (
-    get_delete_summary_use_case,
-    get_summarize_docs_use_case,
-    get_summary_repo,
-)
-from app.summaries.domain.repositories import SummaryRepo
+from app.summaries.dependencies import get_summarizer, get_summary_repo
+from app.summaries.repo import SummaryRepo
+from app.summaries.service import summarize_docs
+from app.summaries.summarizer import SummarizerService
 
 router = APIRouter(prefix="/summarize", tags=["summarize"])
 
@@ -38,13 +35,17 @@ class SummarizeResponse(BaseModel):
 # 201: the request creates a summary — it is stored and comes back with its own id.
 @router.post("/", response_model=SummarizeResponse, status_code=201)
 @limiter.limit(settings.RATE_LIMIT_LLM)
-async def summarize_docs(
+async def create_summary(
     request: Request,
     summarize_request: SummarizeRequest,
-    use_case: Annotated[SummarizeDocsUseCase, Depends(get_summarize_docs_use_case)],
+    doc_repo: Annotated[DocumentRepo, Depends(get_doc_repo)],
+    summarizer: Annotated[SummarizerService, Depends(get_summarizer)],
+    summary_repo: Annotated[SummaryRepo, Depends(get_summary_repo)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> SummarizeResponse:
-    result = await use_case.execute(summarize_request.document_ids, current_user.id)
+    result = await summarize_docs(
+        doc_repo, summarizer, summary_repo, summarize_request.document_ids, current_user.id
+    )
     return SummarizeResponse(
         summary=result.text,
         document_ids=result.document_ids,
@@ -72,8 +73,8 @@ async def list_summaries(
 @router.delete("/{summary_id}")
 async def delete_summary(
     summary_id: UUID,
-    use_case: Annotated[DeleteSummaryUseCase, Depends(get_delete_summary_use_case)],
+    summary_repo: Annotated[SummaryRepo, Depends(get_summary_repo)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
-    await use_case.execute(str(summary_id), current_user.id)
+    await summary_repo.delete(str(summary_id), current_user.id)
     return {"status": "success"}

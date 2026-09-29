@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
 from app.identity.dependencies import get_user_repo
-from app.identity.domain.models import User
+from app.identity.models import User
 from app.identity.security import create_access_token
 from app.main import app
 from app.retrieval.dependencies import get_ask_question_use_case

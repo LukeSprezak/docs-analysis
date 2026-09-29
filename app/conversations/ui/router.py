@@ -20,7 +20,7 @@ from app.conversations.dependencies import (
     get_list_conversations_use_case,
 )
 from app.identity.dependencies import get_current_user
-from app.identity.domain.models import User
+from app.identity.models import User
 from app.retrieval.api import format_sources
 from app.shared.config import settings
 from app.shared.exceptions import EntityNotFoundException

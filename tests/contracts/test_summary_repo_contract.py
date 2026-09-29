@@ -27,8 +27,7 @@ import pytest
 from sqlalchemy import text
 
 from app.shared.database import db_connection, dispose_engine
-from app.summaries.domain.repositories import SummaryRepo
-from app.summaries.infrastructure.postgres_summary_repo import PostgresSummaryRepo
+from app.summaries.repo import PostgresSummaryRepo, SummaryRepo
 
 RepoFactory = Callable[[], SummaryRepo]
 

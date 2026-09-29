@@ -2,12 +2,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
+from app.documents.api import get_doc_repo
 from app.main import app
 from app.shared.kernel.document import Document
 from app.shared.llm.spotlighting import CONTEXT_END_DELIMITER, CONTEXT_START_DELIMITER
-from app.summaries.dependencies import get_summarize_docs_use_case, get_summary_repo
-from app.summaries.domain.models import Summary
-from app.summaries.infrastructure.langchain_summarizer import LangChainSummarizer
+from app.summaries.dependencies import get_summarizer, get_summary_repo
+from app.summaries.models import Summary
+from app.summaries.summarizer import LangChainSummarizer
 
 client = TestClient(app, raise_server_exceptions=False)
 
@@ -20,10 +21,18 @@ def test_summarize_endpoint(override_dependency):
         created_at="2024-01-01",
     )
 
-    mock_use_case = MagicMock()
-    mock_use_case.execute = AsyncMock(return_value=mock_result)
+    mock_doc_repo = MagicMock()
+    mock_doc_repo.get_by_id = AsyncMock(
+        side_effect=lambda doc_id, owner_id: Document(id=doc_id, content="x", metadata={})
+    )
+    mock_summarizer = MagicMock()
+    mock_summarizer.summarize = AsyncMock(return_value="This is a summary")
+    mock_summary_repo = MagicMock()
+    mock_summary_repo.save = AsyncMock(return_value=mock_result)
 
-    override_dependency(get_summarize_docs_use_case, lambda: mock_use_case)
+    override_dependency(get_doc_repo, lambda: mock_doc_repo)
+    override_dependency(get_summarizer, lambda: mock_summarizer)
+    override_dependency(get_summary_repo, lambda: mock_summary_repo)
 
     response = client.post("/api/v1/summarize/", json={"document_ids": ["doc1", "doc2"]})
 

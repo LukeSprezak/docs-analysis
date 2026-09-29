@@ -17,7 +17,7 @@ from app.documents.dependencies import (
 from app.documents.domain.repositories import DocumentRepo
 from app.documents.infrastructure.pymupdf_loader import PyMuPDFLoader
 from app.identity.dependencies import get_current_user
-from app.identity.domain.models import User
+from app.identity.models import User
 from app.shared.config import settings
 from app.shared.exceptions import ValidationException
 from app.shared.rate_limit import limiter
