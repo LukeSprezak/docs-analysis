@@ -35,8 +35,8 @@ Acyclic. Every context may import `app.shared` and `app.identity` (for `get_curr
 app/
   identity/                     unchanged
   shared/
-    kernel/document.py          Document, namespaced_document_id, chunk_id, citation_label
-                                (today: domain/models.Document + domain/document_identity.py)
+    kernel/document.py          Document (today: domain/models.Document)
+    kernel/document_identity.py today: domain/document_identity.py, unchanged
     llm/                        llm_factory, api_keys, spotlighting
     translations_router.py      today: knowledge_management/ui/api/routers/translations.py
     (dependencies.py removed — split per context)
@@ -54,7 +54,7 @@ app/
                                 entity_normalization, evaluation, null_entity_extractor,
                                 null_knowledge_graph_repo
     application/                ask_question, index_document, remove_from_index,
-                                context_retriever, candidate_retrieval, rank_fusion,
+                                retrieval_pipeline, candidate_retrieval, rank_fusion,
                                 evaluation/
     infrastructure/             vector stores (postgres, faiss, neo4j), neo4j graph, lucene,
                                 text_chunker, embeddings_factory, langchain_rag_service,
@@ -79,9 +79,9 @@ app/
 
 `app/knowledge_management/` is removed. Today's single
 `infrastructure/persistence/factory.py` is split into one `factory.py` per context holding
-that context's `create_*` functions; `_neo4j_credentials` and `_unsupported` go to
-`retrieval/infrastructure/factory.py` (only Neo4j and provider switches live there). If
-`_unsupported` is also needed by another factory, it moves to `app/shared/`.
+that context's `create_*` functions. `_neo4j_credentials` and `_unsupported` stay in
+`retrieval/infrastructure/factory.py`; the three record factories have a single provider
+check each and raise `NotImplementedError` inline instead of sharing the helper.
 
 `Document` goes to the shared kernel because `documents` produces it and `retrieval`
 consumes it; owning it in either would create a cycle, since `documents` already depends
@@ -94,9 +94,10 @@ on `retrieval`.
 `retrieval/api.py`:
 - `IndexDocumentUseCase`, `get_index_document_use_case`
 - `RemoveFromIndexUseCase`, `get_remove_from_index_use_case`
-- `ContextRetriever`, `get_context_retriever`
+- `RetrievalPipeline`, `get_retrieval_pipeline`
 - `RAGService`, `get_rag_service`
 - `Answer`
+- `format_sources` (the chat router renders sources the same way as the QA router)
 
 `documents/api.py`:
 - `DocumentRepo`, `get_doc_repo`
@@ -115,10 +116,12 @@ Extracted from existing code, behavior unchanged:
 - `RemoveFromIndexUseCase(vector_repo, graph_repo)`
   `.execute(doc_id, owner_id) -> None` — deletes vectors, then graph facts. Today: the
   middle of `DeleteDocumentUseCase.execute`.
-- `ContextRetriever(candidate_retriever, reranker, candidate_count, top_k)`
-  `.find(query, owner_id) -> list[Document]` — candidate retrieval then rerank to `top_k`.
-  Today duplicated in `AskQuestionUseCase.execute` and `ChatWithDocsUseCase._prepare_context`.
-  `CandidateRetriever` stays as is; the evaluation pipeline keeps using it directly.
+- `RetrievalPipeline(vector_repo, reranker, candidate_count, top_k, graph_repo)`
+  `.retrieve(query, owner_id) -> list[Document]` — candidate retrieval then rerank to
+  `top_k`. It already exists in `application/evaluation/retrieval_pipeline.py`, written to
+  mirror what the QA and chat use cases do; it moves to `retrieval/application/` unchanged
+  and both use cases use it instead of repeating the two steps. The evaluation harness keeps
+  using it, so evaluation now measures literally the production code path.
 
 ## Flows after the change
 
@@ -127,10 +130,10 @@ Extracted from existing code, behavior unchanged:
 - **Delete** — `DeleteDocumentUseCase(doc_repo, remove_from_index)`: look up (owner-filtered),
   remove the file if within storage, `remove_from_index.execute(...)`, delete the record.
   Same order as today.
-- **Ask** — `AskQuestionUseCase(context_retriever, rag_service)`: `find`, then
+- **Ask** — `AskQuestionUseCase(retrieval_pipeline, rag_service)`: `retrieve`, then
   `answer_question`.
-- **Chat** — `ChatWithDocsUseCase(conversation_repo, context_retriever, rag_service)`:
-  load/create conversation, condense the question when there is history, `find`, answer or
+- **Chat** — `ChatWithDocsUseCase(conversation_repo, retrieval_pipeline, rag_service)`:
+  load/create conversation, condense the question when there is history, `retrieve`, answer or
   stream, persist the turn. Condensing stays here: it is about conversation history.
 - **Summarize** — `SummarizeDocsUseCase(doc_repo, summarizer, summary_repo)` with `doc_repo`
   from `documents.api`.
@@ -154,7 +157,7 @@ Extracted from existing code, behavior unchanged:
   `dependencies.py`).
 - `test_upload_document`, `test_delete_document`, `test_ask_question`,
   `test_chat_with_docs`: construct the use cases through `IndexDocumentUseCase`,
-  `RemoveFromIndexUseCase` and `ContextRetriever` built from the same fakes. Assertions
+  `RemoveFromIndexUseCase` and `RetrievalPipeline` built from the same fakes. Assertions
   unchanged.
 - `test_lifespan`: updated to the per-context `init` / `shutdown`.
 
