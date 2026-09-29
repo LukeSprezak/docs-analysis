@@ -116,9 +116,10 @@ Flattening the bounded contexts:
 - [x] Phase 3 — `retrieval`
 - [x] Phase 4 — README layout, this file
 
-Not implemented yet (from the original RAG spec — decide before starting):
+From the original RAG spec — decide before starting the open ones:
 
-- [ ] `score` and `snippet` per source in `/qa/ask` responses (today: `list[str]` labels)
+- [x] `score` (vector similarity, `null` for keyword-only hits and graph facts) and `snippet`
+  per source in `/qa/ask` responses; `/chat` still returns `list[str]` labels
 - [ ] `/health` with `chunks_indexed`
 - [ ] `min_score` cutoff on retrieval
 - [ ] store the embedding model with the index and fail clearly on a mismatch at query time

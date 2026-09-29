@@ -109,10 +109,13 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
         return await self._vector_search(query, owner_id, top_k)
 
     async def _vector_search(self, query: str, owner_id: str, top_k: int) -> list[Document]:
-        results = await self.vector_store.asimilarity_search(
+        results = await self.vector_store.asimilarity_search_with_relevance_scores(
             query, k=top_k, filter={"owner_id": {"$eq": owner_id}}
         )
-        return [self._to_document(res.page_content, res.metadata) for res in results]
+        return [
+            self._to_document(res.page_content, {**res.metadata, "score": score})
+            for res, score in results
+        ]
 
     async def _hybrid_search(self, query: str, owner_id: str, top_k: int) -> list[Document]:
         """Combines vector and full-text hits (Neo4j full-text index) via RRF."""

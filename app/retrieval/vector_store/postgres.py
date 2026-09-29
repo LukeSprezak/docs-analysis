@@ -75,7 +75,7 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
 
     async def _vector_search(self, query: str, owner_id: str, top_k: int) -> list[Document]:
         # Metadata filter: return only the chunks belonging to the asker.
-        results = await self.vector_store.asimilarity_search(
+        results = await self.vector_store.asimilarity_search_with_relevance_scores(
             query, k=top_k, filter={"owner_id": {"$eq": owner_id}}
         )
         return [
@@ -84,9 +84,9 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
                 # the chunk metadata (this used to come out as "unknown").
                 id=parent_document_id(res.metadata),
                 content=res.page_content,
-                metadata=res.metadata,
+                metadata={**res.metadata, "score": score},
             )
-            for res in results
+            for res, score in results
         ]
 
     async def _hybrid_search(self, query: str, owner_id: str, top_k: int) -> list[Document]:

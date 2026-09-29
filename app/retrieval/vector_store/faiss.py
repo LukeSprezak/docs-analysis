@@ -83,7 +83,7 @@ class FaissVectorStoreRepo(VectorStoreRepo):
         # the filter is applied after fetching — otherwise we would return too few results.
         store = self._vector_store
         results = await to_thread.run_sync(
-            lambda: store.similarity_search(
+            lambda: store.similarity_search_with_relevance_scores(
                 query,
                 k=top_k,
                 filter={"owner_id": owner_id},
@@ -94,9 +94,9 @@ class FaissVectorStoreRepo(VectorStoreRepo):
             Document(
                 id=parent_document_id(result.metadata),
                 content=result.page_content,
-                metadata=result.metadata,
+                metadata={**result.metadata, "score": score},
             )
-            for result in results
+            for result, score in results
         ]
 
     async def delete_by_document_id(self, doc_id: str, owner_id: str) -> None:

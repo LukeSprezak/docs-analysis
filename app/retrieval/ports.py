@@ -8,7 +8,9 @@ from app.shared.kernel.document import Document
 class VectorStoreRepo(Protocol):
     async def add_documents(self, documents: list[Document], owner_id: str) -> None: ...
 
-    async def search(self, query: str, owner_id: str, top_k: int = 4) -> list[Document]: ...
+    async def search(self, query: str, owner_id: str, top_k: int = 4) -> list[Document]:
+        """Chunks found by vector similarity carry their relevance (0-1, higher is better) in
+        `metadata["score"]`; chunks found only by keyword search (hybrid mode) have none."""
 
     async def delete_by_document_id(self, doc_id: str, owner_id: str) -> None: ...
 
