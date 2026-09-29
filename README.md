@@ -140,6 +140,4 @@ gunicorn.
 
 ## Where the rest is written down
 
-- [`BACKLOG.md`](BACKLOG.md) — open work, with the reasoning behind each item
-- [`AUDYT.md`](AUDYT.md) — the technical audit and the state of its findings
 - [`client/CLAUDE.md`](client/CLAUDE.md) — frontend stack, commands and conventions
