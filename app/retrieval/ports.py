@@ -14,6 +14,9 @@ class VectorStoreRepo(Protocol):
 
     async def delete_by_document_id(self, doc_id: str, owner_id: str) -> None: ...
 
+    async def count(self) -> int:
+        """Chunks stored across all owners."""
+
     async def close(self) -> None:
         """Releases whatever connection the adapter opened for itself.
 

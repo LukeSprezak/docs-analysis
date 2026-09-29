@@ -108,6 +108,9 @@ class FaissVectorStoreRepo(VectorStoreRepo):
             for result, score in results
         ]
 
+    async def count(self) -> int:
+        return sum(len(chunk_ids) for chunk_ids in self._chunk_ids_by_owned_document.values())
+
     async def delete_by_document_id(self, doc_id: str, owner_id: str) -> None:
         if self._vector_store is None:
             return

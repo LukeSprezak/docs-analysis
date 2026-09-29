@@ -147,6 +147,20 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
             for content, metadata in rows
         ]
 
+    async def count(self) -> int:
+        async with db_connection() as connection:
+            collection_uuid = await self._collection_uuid(connection)
+            if collection_uuid is None:
+                return 0
+            result = await connection.execute(
+                text(
+                    "SELECT count(*) FROM langchain_pg_embedding "
+                    "WHERE collection_id = :collection_id"
+                ),
+                {"collection_id": collection_uuid},
+            )
+            return int(result.scalar_one())
+
     async def _collection_uuid(self, connection: Any) -> object | None:
         result = await connection.execute(
             text("SELECT uuid FROM langchain_pg_collection WHERE name = :name LIMIT 1"),

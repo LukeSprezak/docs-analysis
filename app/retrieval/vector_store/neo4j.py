@@ -158,6 +158,12 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
             {"doc_id": doc_id, "owner_id": owner_id},
         )
 
+    async def count(self) -> int:
+        rows = await self._query(
+            f"MATCH (chunk:`{self.node_label}`) RETURN count(chunk) AS chunks", {}
+        )
+        return int(rows[0]["chunks"])
+
     async def close(self) -> None:
         """Closes the Bolt driver and its connection pool.
 

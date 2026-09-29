@@ -45,6 +45,9 @@ class StubVectorStoreRepo(VectorStoreRepo):
     async def delete_by_document_id(self, doc_id: str, owner_id: str) -> None:
         raise NotImplementedError
 
+    async def count(self) -> int:
+        raise NotImplementedError
+
 
 class StubSummaryRepo(SummaryRepo):
     async def save(self, text: str, document_ids: list[str], owner_id: str) -> Summary:

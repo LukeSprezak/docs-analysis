@@ -6,8 +6,10 @@ import pytest
 from app.identity.dependencies import get_current_user
 from app.identity.models import User
 from app.main import app
+from app.retrieval.dependencies import get_vector_repo
 from app.shared.config import settings
 from app.shared.rate_limit import limiter
+from tests.fakes import StubVectorStoreRepo
 
 TEST_USER = User(id="test-user-id", email="test@example.com", hashed_password="x")
 
@@ -25,6 +27,20 @@ def authenticated_test_user():
     app.dependency_overrides[get_current_user] = lambda: TEST_USER
     yield
     app.dependency_overrides.pop(get_current_user, None)
+
+
+class EmptyVectorRepo(StubVectorStoreRepo):
+    async def count(self) -> int:
+        return 0
+
+
+@pytest.fixture(autouse=True)
+def empty_vector_store():
+    """`/health` counts the indexed chunks; without this every test that calls it would need
+    a live vector store. Same teardown rule as `authenticated_test_user`."""
+    app.dependency_overrides[get_vector_repo] = lambda: EmptyVectorRepo()
+    yield
+    app.dependency_overrides.pop(get_vector_repo, None)
 
 
 @pytest.fixture

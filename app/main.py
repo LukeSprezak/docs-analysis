@@ -1,7 +1,8 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Annotated
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -11,6 +12,7 @@ from app.documents import router as documents_router
 from app.identity import router as identity_router
 from app.retrieval import dependencies as retrieval_dependencies
 from app.retrieval import router as retrieval_router
+from app.retrieval.ports import VectorStoreRepo
 from app.shared import translations_router
 from app.shared.config import settings
 from app.shared.database import dispose_engine
@@ -84,5 +86,7 @@ async def root() -> dict[str, str]:
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def health(
+    vector_repo: Annotated[VectorStoreRepo, Depends(retrieval_dependencies.get_vector_repo)],
+) -> dict[str, str | int]:
+    return {"status": "ok", "chunks_indexed": await vector_repo.count()}
