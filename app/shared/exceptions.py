@@ -45,6 +45,20 @@ class AuthenticationException(AppException):
         )
 
 
+class EmbeddingModelMismatchException(AppException):
+    def __init__(self, indexed_with: str, configured: str):
+        super().__init__(
+            message=(
+                f"The vector index was built with embedding model '{indexed_with}', but "
+                f"'{configured}' is configured. Switch back to '{indexed_with}', or delete all "
+                "documents and upload them again."
+            ),
+            status_code=500,
+            error_code="EMBEDDING_MODEL_MISMATCH",
+            context={"indexed_with": indexed_with, "configured": configured},
+        )
+
+
 class InfrastructureException(AppException):
     def __init__(self, message: str, context: dict[str, Any] | None = None):
         super().__init__(

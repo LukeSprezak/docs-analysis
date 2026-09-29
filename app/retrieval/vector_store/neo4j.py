@@ -34,6 +34,7 @@ from app.retrieval.chunker import TextChunker
 from app.retrieval.lucene import escape_lucene
 from app.retrieval.ports import VectorStoreRepo
 from app.retrieval.rank_fusion import fuse_documents, retrieval_key
+from app.shared.exceptions import EmbeddingModelMismatchException
 from app.shared.kernel.document import Document
 from app.shared.kernel.document_identity import parent_document_id
 
@@ -44,6 +45,7 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
     def __init__(
         self,
         embeddings: Embeddings,
+        embedding_model: str,
         url: str,
         username: str,
         password: str,
@@ -55,6 +57,8 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
         enable_hybrid_search: bool = False,
     ) -> None:
         self.embeddings = embeddings
+        self.embedding_model = embedding_model
+        self._embedding_model_verified = False
         self.chunker = chunker or TextChunker()
         self.enable_hybrid_search = enable_hybrid_search
         self.node_label = node_label
@@ -81,6 +85,7 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
                 self.vector_store.create_new_keyword_index([text_property])
 
     async def add_documents(self, documents: list[Document], owner_id: str) -> None:
+        await self._verify_embedding_model()
         owned_documents = [
             Document(
                 id=document.id,
@@ -104,6 +109,7 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
         await self.vector_store.aadd_documents(lc_docs, ids=[chunk.id for chunk in chunks])
 
     async def search(self, query: str, owner_id: str, top_k: int = 4) -> list[Document]:
+        await self._verify_embedding_model()
         if self.enable_hybrid_search:
             return await self._hybrid_search(query, owner_id, top_k)
         return await self._vector_search(query, owner_id, top_k)
@@ -163,6 +169,38 @@ class Neo4jVectorStoreRepo(VectorStoreRepo):
             f"MATCH (chunk:`{self.node_label}`) RETURN count(chunk) AS chunks", {}
         )
         return int(rows[0]["chunks"])
+
+    async def _verify_embedding_model(self) -> None:
+        """Refuses to embed with a model other than the one the index was built with.
+
+        The same rule as the Postgres adapter: checked once per process, and an index with no
+        recorded model or no chunks adopts the configured one. The model lives on an
+        `(:EmbeddingModel {index_name})` node, since a Neo4j vector index carries no metadata.
+        """
+        if self._embedding_model_verified:
+            return
+        rows = await self._query(
+            "OPTIONAL MATCH (model:EmbeddingModel {index_name: $index_name}) "
+            f"CALL () {{ MATCH (chunk:`{self.node_label}`) RETURN count(chunk) AS chunks }} "
+            "RETURN model.name AS indexed_with, chunks",
+            {"index_name": self.vector_store.index_name},
+        )
+        indexed_with, chunk_count = rows[0]["indexed_with"], rows[0]["chunks"]
+        if indexed_with != self.embedding_model:
+            if indexed_with is not None and chunk_count > 0:
+                raise EmbeddingModelMismatchException(indexed_with, self.embedding_model)
+            logger.warning(
+                "Recording embedding model %s for index %s (was %s, %d chunks)",
+                self.embedding_model,
+                self.vector_store.index_name,
+                indexed_with,
+                chunk_count,
+            )
+            await self._query(
+                "MERGE (model:EmbeddingModel {index_name: $index_name}) SET model.name = $model",
+                {"index_name": self.vector_store.index_name, "model": self.embedding_model},
+            )
+        self._embedding_model_verified = True
 
     async def close(self) -> None:
         """Closes the Bolt driver and its connection pool.

@@ -31,8 +31,9 @@ question → RetrievalPipeline (vector search + graph facts → RRF fusion → r
 ```
 
 **Critical rule:** documents and questions must be embedded with the same model. The
-embedding model follows `LLM_PROVIDER` (`retrieval/embedder.py`); changing it makes the
-existing index incompatible — re-upload the documents.
+embedding model follows `LLM_PROVIDER` (`retrieval/embedder.py`). The Postgres and Neo4j
+stores record it (`embedding_model_id`) and refuse to embed with a different one
+(`EmbeddingModelMismatchException`); to switch models, delete all documents and re-upload.
 
 ## Layout
 
@@ -123,4 +124,6 @@ From the original RAG spec — decide before starting the open ones:
 - [x] `/health` with `chunks_indexed` (all owners, `VectorStoreRepo.count()`)
 - [x] `min_score` cutoff on retrieval (`RETRIEVAL_MIN_SCORE`, applied before reranking;
   hits without a score pass) — value still to be tuned with the evaluation
-- [ ] store the embedding model with the index and fail clearly on a mismatch at query time
+- [x] store the embedding model with the index and fail clearly on a mismatch (on upload and
+  search, once per process; an index with no recorded model or no chunks adopts the
+  configured one)

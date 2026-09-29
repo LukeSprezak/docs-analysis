@@ -13,7 +13,7 @@ a half-working system.
 
 from typing import NamedTuple
 
-from app.retrieval.embedder import create_embeddings
+from app.retrieval.embedder import create_embeddings, embedding_model_id
 from app.retrieval.knowledge_graph.entity_extractor import LLMEntityExtractor
 from app.retrieval.knowledge_graph.neo4j import Neo4jKnowledgeGraphRepo
 from app.retrieval.knowledge_graph.null import NullEntityExtractor, NullKnowledgeGraphRepo
@@ -39,12 +39,14 @@ def create_vector_store_repo() -> VectorStoreRepo:
     if settings.VECTOR_STORE_PROVIDER == VectorStoreProvider.POSTGRES:
         return PostgresVectorStoreRepo(
             embeddings=embeddings,
+            embedding_model=embedding_model_id(embeddings),
             enable_hybrid_search=settings.RETRIEVAL_STRATEGY == SearchStrategy.HYBRID,
         )
     if settings.VECTOR_STORE_PROVIDER == VectorStoreProvider.NEO4J:
         credentials = _neo4j_credentials()
         return Neo4jVectorStoreRepo(
             embeddings=embeddings,
+            embedding_model=embedding_model_id(embeddings),
             enable_hybrid_search=settings.RETRIEVAL_STRATEGY == SearchStrategy.HYBRID,
             url=credentials.url,
             username=credentials.username,

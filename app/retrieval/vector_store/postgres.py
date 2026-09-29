@@ -11,29 +11,37 @@ from app.retrieval.chunker import TextChunker
 from app.retrieval.ports import VectorStoreRepo
 from app.retrieval.rank_fusion import fuse_documents, retrieval_key
 from app.shared.database import db_connection, get_engine
+from app.shared.exceptions import EmbeddingModelMismatchException
 from app.shared.kernel.document import Document
 from app.shared.kernel.document_identity import parent_document_id
 
 logger = logging.getLogger(__name__)
+
+EMBEDDING_MODEL_KEY = "embedding_model"
 
 
 class PostgresVectorStoreRepo(VectorStoreRepo):
     def __init__(
         self,
         embeddings: Embeddings,
+        embedding_model: str,
         collection_name: str = "documents",
         chunker: TextChunker | None = None,
         enable_hybrid_search: bool = False,
     ):
         self.embeddings = embeddings
+        self.embedding_model = embedding_model
         self.collection_name = collection_name
         self.chunker = chunker or TextChunker()
         self.enable_hybrid_search = enable_hybrid_search
+        self._embedding_model_verified = False
 
         self.vector_store = PGVector(
             connection=get_engine(),
             embeddings=self.embeddings,
             collection_name=self.collection_name,
+            # Recorded when PGVector creates the collection; see _verify_embedding_model.
+            collection_metadata={EMBEDDING_MODEL_KEY: embedding_model},
             use_jsonb=True,
             async_mode=True,
             create_extension=False,
@@ -43,6 +51,7 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         )
 
     async def add_documents(self, documents: list[Document], owner_id: str) -> None:
+        await self._verify_embedding_model()
         owned_documents = [
             Document(
                 id=document.id,
@@ -72,6 +81,7 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
         await self.vector_store.aadd_documents(lc_docs, ids=ids)
 
     async def search(self, query: str, owner_id: str, top_k: int = 4) -> list[Document]:
+        await self._verify_embedding_model()
         if self.enable_hybrid_search:
             return await self._hybrid_search(query, owner_id, top_k)
         return await self._vector_search(query, owner_id, top_k)
@@ -160,6 +170,60 @@ class PostgresVectorStoreRepo(VectorStoreRepo):
                 {"collection_id": collection_uuid},
             )
             return int(result.scalar_one())
+
+    async def _verify_embedding_model(self) -> None:
+        """Refuses to embed with a model other than the one the collection was built with.
+
+        Checked once per process. A collection without a recorded model predates this check
+        and one with no chunks has nothing to be incompatible with — both adopt the configured
+        model, the latter so that "delete everything and upload again" recovers.
+        """
+        if self._embedding_model_verified:
+            return
+        async with db_connection() as connection:
+            row = (
+                await connection.execute(
+                    text("SELECT uuid, cmetadata FROM langchain_pg_collection WHERE name = :name"),
+                    {"name": self.collection_name},
+                )
+            ).fetchone()
+            # No collection yet: PGVector creates it with the configured model recorded.
+            if row is not None:
+                collection_uuid, metadata = row
+                indexed_with = (metadata or {}).get(EMBEDDING_MODEL_KEY)
+                if indexed_with != self.embedding_model:
+                    chunk_count = (
+                        await connection.execute(
+                            text(
+                                "SELECT count(*) FROM langchain_pg_embedding "
+                                "WHERE collection_id = :collection_id"
+                            ),
+                            {"collection_id": collection_uuid},
+                        )
+                    ).scalar_one()
+                    if indexed_with is not None and chunk_count > 0:
+                        raise EmbeddingModelMismatchException(indexed_with, self.embedding_model)
+                    logger.warning(
+                        "Recording embedding model %s for collection %s (was %s, %d chunks)",
+                        self.embedding_model,
+                        self.collection_name,
+                        indexed_with,
+                        chunk_count,
+                    )
+                    await connection.execute(
+                        text(
+                            "UPDATE langchain_pg_collection SET cmetadata = ("
+                            "  coalesce(cmetadata::jsonb, '{}'::jsonb)"
+                            "  || jsonb_build_object(CAST(:key AS text), CAST(:model AS text))"
+                            ")::json WHERE uuid = :collection_id"
+                        ),
+                        {
+                            "key": EMBEDDING_MODEL_KEY,
+                            "model": self.embedding_model,
+                            "collection_id": collection_uuid,
+                        },
+                    )
+        self._embedding_model_verified = True
 
     async def _collection_uuid(self, connection: Any) -> object | None:
         result = await connection.execute(

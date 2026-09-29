@@ -1,4 +1,3 @@
-from langchain_core.embeddings import Embeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_ollama import OllamaEmbeddings
 from langchain_openai import OpenAIEmbeddings
@@ -7,8 +6,18 @@ from app.shared.config import settings
 from app.shared.enums import LLMProvider
 from app.shared.llm.api_keys import as_secret
 
+ProviderEmbeddings = OpenAIEmbeddings | GoogleGenerativeAIEmbeddings | OllamaEmbeddings
 
-def create_embeddings() -> Embeddings:
+
+def embedding_model_id(embeddings: ProviderEmbeddings) -> str:
+    """What an index records as the model that built it, e.g. `OpenAIEmbeddings:text-embedding-ada-002`.
+
+    Vectors from two models are not comparable, so an index built with one and queried with
+    another returns nonsense instead of an error — the id is what lets the stores refuse."""
+    return f"{type(embeddings).__name__}:{embeddings.model}"
+
+
+def create_embeddings() -> ProviderEmbeddings:
     provider = settings.LLM_PROVIDER.lower()
 
     match provider:

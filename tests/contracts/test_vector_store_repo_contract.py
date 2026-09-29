@@ -77,6 +77,7 @@ async def postgres_factory() -> AsyncIterator[RepoFactory]:
     def build(chunker: TextChunker, enable_hybrid_search: bool) -> VectorStoreRepo:
         repo = PostgresVectorStoreRepo(
             embeddings=_embeddings(),
+            embedding_model="contract-test-embeddings",
             collection_name=f"contract_test_{uuid.uuid4().hex}",
             chunker=chunker,
             enable_hybrid_search=enable_hybrid_search,
@@ -105,6 +106,7 @@ async def neo4j_factory() -> AsyncIterator[RepoFactory]:
         suffix = uuid.uuid4().hex
         repo = Neo4jVectorStoreRepo(
             embeddings=_embeddings(),
+            embedding_model="contract-test-embeddings",
             url=NEO4J_TEST_URI,
             username=NEO4J_TEST_USERNAME,
             password=NEO4J_TEST_PASSWORD,
