@@ -1,0 +1,167 @@
+import json
+from collections.abc import AsyncIterator
+from typing import Annotated, Any
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
+from app.conversations.application.chat_with_docs import ChatWithDocsUseCase
+from app.conversations.application.manage_conversations import (
+    DeleteConversationUseCase,
+    GetConversationUseCase,
+    ListConversationsUseCase,
+)
+from app.identity.dependencies import get_current_user
+from app.identity.domain.models import User
+from app.retrieval.ui.sources import format_sources
+from app.shared.config import settings
+from app.shared.dependencies import (
+    get_chat_with_docs_use_case,
+    get_delete_conversation_use_case,
+    get_get_conversation_use_case,
+    get_list_conversations_use_case,
+)
+from app.shared.exceptions import EntityNotFoundException
+from app.shared.rate_limit import limiter
+
+router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+class ChatMessageSchema(BaseModel):
+    role: str
+    content: str
+    timestamp: str | None = None
+
+
+class ChatRequest(BaseModel):
+    # A UUID, not a free string: the column is `uuid`, so a malformed id reaches Postgres as
+    # a cast error and comes back a 500. Typed here, FastAPI rejects it with a 422 before any
+    # query runs.
+    message: str
+    conversation_id: UUID | None = None
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    sources: list[str]
+    conversation_id: str
+
+
+class ConversationSchema(BaseModel):
+    id: str
+    title: str
+    messages: list[ChatMessageSchema]
+    created_at: str | None = None
+
+
+def _conversation_id(chat_request: ChatRequest) -> str | None:
+    """The requested conversation id as the rest of the system spells it — a string."""
+    return str(chat_request.conversation_id) if chat_request.conversation_id else None
+
+
+@router.post("/", response_model=ChatResponse)
+@limiter.limit(settings.RATE_LIMIT_LLM)
+async def chat(
+    request: Request,
+    chat_request: ChatRequest,
+    use_case: Annotated[ChatWithDocsUseCase, Depends(get_chat_with_docs_use_case)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ChatResponse:
+    result, conv_id = await use_case.execute(
+        chat_request.message, current_user.id, _conversation_id(chat_request)
+    )
+    return ChatResponse(
+        answer=result.text, sources=format_sources(result.sources), conversation_id=conv_id
+    )
+
+
+@router.post("/stream")
+@limiter.limit(settings.RATE_LIMIT_LLM)
+async def chat_stream(
+    request: Request,
+    chat_request: ChatRequest,
+    use_case: Annotated[ChatWithDocsUseCase, Depends(get_chat_with_docs_use_case)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> StreamingResponse:
+    """Streams the answer as NDJSON: {"type":"token"...} lines, then a final
+    {"type":"done","conversation_id":...,"sources":[...]}."""
+    owner_id = current_user.id
+
+    def encode(event: dict[str, Any]) -> str:
+        if event["type"] == "done":
+            payload: dict[str, Any] = {
+                "type": "done",
+                "conversation_id": event["conversation_id"],
+                "sources": format_sources(event["sources"]),
+            }
+        else:
+            payload = event
+        return json.dumps(payload, ensure_ascii=False) + "\n"
+
+    stream = use_case.execute_stream(chat_request.message, owner_id, _conversation_id(chat_request))
+    # The first event is pulled here, outside the response body. Everything that can still
+    # fail with a status code — an unknown conversation id above all — happens on that first
+    # step, and once StreamingResponse starts iterating the 200 headers are already sent:
+    # an exception raised in there cannot become a 404, it only truncates the stream.
+    first_event = await anext(stream)
+
+    async def generate() -> AsyncIterator[str]:
+        yield encode(first_event)
+        async for event in stream:
+            yield encode(event)
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
+
+
+@router.get("/conversations", response_model=list[ConversationSchema])
+async def list_conversations(
+    use_case: Annotated[ListConversationsUseCase, Depends(get_list_conversations_use_case)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    limit: Annotated[int, Query(ge=1, le=settings.LIST_MAX_LIMIT)] = settings.LIST_DEFAULT_LIMIT,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[ConversationSchema]:
+    conversations = await use_case.execute(current_user.id, limit=limit, offset=offset)
+    return [
+        ConversationSchema(
+            id=c.id,
+            title=c.title,
+            messages=[
+                ChatMessageSchema(role=m.role, content=m.content, timestamp=m.timestamp)
+                for m in c.messages
+            ],
+            created_at=c.created_at,
+        )
+        for c in conversations
+    ]
+
+
+@router.get("/conversations/{conversation_id}", response_model=ConversationSchema)
+async def get_conversation(
+    conversation_id: UUID,
+    use_case: Annotated[GetConversationUseCase, Depends(get_get_conversation_use_case)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ConversationSchema:
+    conversation = await use_case.execute(str(conversation_id), current_user.id)
+    if not conversation:
+        raise EntityNotFoundException(entity="Conversation", identifier=conversation_id)
+    return ConversationSchema(
+        id=conversation.id,
+        title=conversation.title,
+        messages=[
+            ChatMessageSchema(role=m.role, content=m.content, timestamp=m.timestamp)
+            for m in conversation.messages
+        ],
+        created_at=conversation.created_at,
+    )
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(
+    conversation_id: UUID,
+    use_case: Annotated[DeleteConversationUseCase, Depends(get_delete_conversation_use_case)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    await use_case.execute(str(conversation_id), current_user.id)
+    return {"status": "success"}

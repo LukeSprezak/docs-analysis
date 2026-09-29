@@ -1,9 +1,9 @@
-from app.knowledge_management.application.use_cases.manage_conversations import (
+from app.conversations.application.manage_conversations import (
     DeleteConversationUseCase,
     GetConversationUseCase,
     ListConversationsUseCase,
 )
-from app.knowledge_management.domain.models import Conversation
+from app.conversations.domain.models import Conversation
 from tests.fakes import StubConversationRepo
 
 

@@ -1,8 +1,5 @@
-from app.knowledge_management.application.retrieval.rank_fusion import (
-    fuse_documents,
-    reciprocal_rank_fusion,
-)
-from app.knowledge_management.domain.models import Document
+from app.retrieval.application.rank_fusion import fuse_documents, reciprocal_rank_fusion
+from app.shared.kernel.document import Document
 
 
 def test_rrf_promotes_key_present_in_both_rankings():

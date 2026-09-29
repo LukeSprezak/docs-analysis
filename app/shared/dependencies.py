@@ -1,9 +1,9 @@
-"""Dependency injection for the knowledge_management context.
+"""Dependency injection for the documents, retrieval, conversations and summaries contexts.
 
 Every provider here is typed against the **port** (the ABC from `domain/repositories.py`),
 never a concrete adapter. That is what keeps the backing store swappable: the use cases and
 routers below are compiled against the contract, and the only code that names
-`PostgresDocumentRepo` and friends is `infrastructure/persistence/factory.py`.
+`PostgresDocumentRepo` and friends is each context's `infrastructure/factory.py`.
 
 The repositories are process-wide singletons — they hold no per-request state, only a handle
 to a shared connection pool (or, for FAISS, the in-memory index). They are built eagerly by
@@ -16,32 +16,35 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from app.knowledge_management.application.use_cases.ask_question import AskQuestionUseCase
-from app.knowledge_management.application.use_cases.chat_with_docs import ChatWithDocsUseCase
-from app.knowledge_management.application.use_cases.delete_document import DeleteDocumentUseCase
-from app.knowledge_management.application.use_cases.delete_summary import DeleteSummaryUseCase
-from app.knowledge_management.application.use_cases.manage_conversations import (
+from app.conversations.application.chat_with_docs import ChatWithDocsUseCase
+from app.conversations.application.manage_conversations import (
     DeleteConversationUseCase,
     GetConversationUseCase,
     ListConversationsUseCase,
 )
-from app.knowledge_management.application.use_cases.summarize_docs import SummarizeDocsUseCase
-from app.knowledge_management.application.use_cases.upload_document import UploadDocumentUseCase
-from app.knowledge_management.domain.repositories import (
-    ConversationRepo,
-    DocumentRepo,
+from app.conversations.domain.repositories import ConversationRepo
+from app.conversations.infrastructure import factory as conversations_factory
+from app.documents.application.delete_document import DeleteDocumentUseCase
+from app.documents.application.upload_document import UploadDocumentUseCase
+from app.documents.domain.repositories import DocumentRepo
+from app.documents.infrastructure import factory as documents_factory
+from app.retrieval.application.ask_question import AskQuestionUseCase
+from app.retrieval.domain.repositories import (
     EntityExtractor,
     KnowledgeGraphRepo,
     RerankerService,
-    SummaryRepo,
     VectorStoreRepo,
 )
-from app.knowledge_management.infrastructure.llm.langchain_rag_service import LangChainRAGService
-from app.knowledge_management.infrastructure.llm.langchain_summarizer import LangChainSummarizer
-from app.knowledge_management.infrastructure.llm.llm_factory import LLMFactory
-from app.knowledge_management.infrastructure.llm.reranker_factory import RerankerFactory
-from app.knowledge_management.infrastructure.persistence import factory
+from app.retrieval.infrastructure import factory as retrieval_factory
+from app.retrieval.infrastructure.langchain_rag_service import LangChainRAGService
+from app.retrieval.infrastructure.reranker_factory import RerankerFactory
 from app.shared.config import settings
+from app.shared.llm.llm_factory import LLMFactory
+from app.summaries.application.delete_summary import DeleteSummaryUseCase
+from app.summaries.application.summarize_docs import SummarizeDocsUseCase
+from app.summaries.domain.repositories import SummaryRepo
+from app.summaries.infrastructure import factory as summaries_factory
+from app.summaries.infrastructure.langchain_summarizer import LangChainSummarizer
 
 _singleton_lock = threading.Lock()
 
@@ -57,7 +60,7 @@ def get_doc_repo() -> DocumentRepo:
     global _doc_repo
     with _singleton_lock:
         if _doc_repo is None:
-            _doc_repo = factory.create_document_repo()
+            _doc_repo = documents_factory.create_document_repo()
         return _doc_repo
 
 
@@ -65,7 +68,7 @@ def get_vector_repo() -> VectorStoreRepo:
     global _vector_repo
     with _singleton_lock:
         if _vector_repo is None:
-            _vector_repo = factory.create_vector_store_repo()
+            _vector_repo = retrieval_factory.create_vector_store_repo()
         return _vector_repo
 
 
@@ -73,7 +76,7 @@ def get_summary_repo() -> SummaryRepo:
     global _summary_repo
     with _singleton_lock:
         if _summary_repo is None:
-            _summary_repo = factory.create_summary_repo()
+            _summary_repo = summaries_factory.create_summary_repo()
         return _summary_repo
 
 
@@ -81,7 +84,7 @@ def get_conversation_repo() -> ConversationRepo:
     global _conversation_repo
     with _singleton_lock:
         if _conversation_repo is None:
-            _conversation_repo = factory.create_conversation_repo()
+            _conversation_repo = conversations_factory.create_conversation_repo()
         return _conversation_repo
 
 
@@ -89,7 +92,7 @@ def get_graph_repo() -> KnowledgeGraphRepo:
     global _graph_repo
     with _singleton_lock:
         if _graph_repo is None:
-            _graph_repo = factory.create_knowledge_graph_repo()
+            _graph_repo = retrieval_factory.create_knowledge_graph_repo()
         return _graph_repo
 
 
@@ -97,7 +100,7 @@ def get_entity_extractor() -> EntityExtractor:
     global _entity_extractor
     with _singleton_lock:
         if _entity_extractor is None:
-            _entity_extractor = factory.create_entity_extractor()
+            _entity_extractor = retrieval_factory.create_entity_extractor()
         return _entity_extractor
 
 

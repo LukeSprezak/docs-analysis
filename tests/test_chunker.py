@@ -1,5 +1,5 @@
-from app.knowledge_management.domain.models import Document
-from app.knowledge_management.infrastructure.text.text_chunker import TextChunker
+from app.retrieval.infrastructure.text_chunker import TextChunker
+from app.shared.kernel.document import Document
 
 
 def test_chunker_splits_long_document_into_multiple_chunks():

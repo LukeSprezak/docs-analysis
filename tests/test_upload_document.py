@@ -1,5 +1,5 @@
-from app.knowledge_management.application.use_cases.upload_document import UploadDocumentUseCase
-from app.knowledge_management.domain.models import Document
+from app.documents.application.upload_document import UploadDocumentUseCase
+from app.shared.kernel.document import Document
 from tests.fakes import StubDocumentRepo, StubVectorStoreRepo
 
 

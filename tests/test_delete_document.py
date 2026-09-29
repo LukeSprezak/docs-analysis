@@ -2,8 +2,8 @@ import os
 import tempfile
 from pathlib import Path
 
-from app.knowledge_management.application.use_cases.delete_document import DeleteDocumentUseCase
-from app.knowledge_management.domain.models import Document
+from app.documents.application.delete_document import DeleteDocumentUseCase
+from app.shared.kernel.document import Document
 from app.shared.storage import storage_documents_dir
 from tests.fakes import StubDocumentRepo, StubVectorStoreRepo
 

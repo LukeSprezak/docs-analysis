@@ -4,10 +4,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from app.knowledge_management.domain.models import Document
 from app.main import app
 from app.shared.dependencies import get_upload_document_use_case
 from app.shared.exceptions import ValidationException
+from app.shared.kernel.document import Document
 from app.shared.storage import is_within_storage, safe_document_path, storage_documents_dir
 from app.shared.upload_validation import validate_pdf_content, validate_upload_extension
 

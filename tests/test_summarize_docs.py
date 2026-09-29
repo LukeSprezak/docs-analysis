@@ -1,9 +1,10 @@
 import pytest
 
-from app.knowledge_management.application.use_cases.summarize_docs import SummarizeDocsUseCase
-from app.knowledge_management.domain.models import Document, Summary
-from app.knowledge_management.domain.repositories import SummarizerService
 from app.shared.exceptions import ValidationException
+from app.shared.kernel.document import Document
+from app.summaries.application.summarize_docs import SummarizeDocsUseCase
+from app.summaries.domain.models import Summary
+from app.summaries.domain.repositories import SummarizerService
 from tests.fakes import StubDocumentRepo, StubSummaryRepo
 
 

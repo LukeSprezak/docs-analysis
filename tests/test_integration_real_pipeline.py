@@ -13,15 +13,13 @@ from langchain_core.embeddings import DeterministicFakeEmbedding
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
-from app.knowledge_management.application.use_cases.ask_question import AskQuestionUseCase
-from app.knowledge_management.application.use_cases.upload_document import UploadDocumentUseCase
-from app.knowledge_management.domain.models import Document
-from app.knowledge_management.infrastructure.llm.langchain_rag_service import LangChainRAGService
-from app.knowledge_management.infrastructure.llm.reranker import NoOpReranker
-from app.knowledge_management.infrastructure.persistence.faiss_vectorstore_repo import (
-    FaissVectorStoreRepo,
-)
-from app.knowledge_management.infrastructure.text.text_chunker import TextChunker
+from app.documents.application.upload_document import UploadDocumentUseCase
+from app.retrieval.application.ask_question import AskQuestionUseCase
+from app.retrieval.infrastructure.faiss_vectorstore_repo import FaissVectorStoreRepo
+from app.retrieval.infrastructure.langchain_rag_service import LangChainRAGService
+from app.retrieval.infrastructure.reranker import NoOpReranker
+from app.retrieval.infrastructure.text_chunker import TextChunker
+from app.shared.kernel.document import Document
 from tests.fakes import StubDocumentRepo
 
 

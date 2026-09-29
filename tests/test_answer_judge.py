@@ -2,8 +2,8 @@ import pytest
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
-from app.knowledge_management.domain.models import Document
-from app.knowledge_management.infrastructure.llm.answer_judge import LLMAnswerJudge
+from app.retrieval.infrastructure.answer_judge import LLMAnswerJudge
+from app.shared.kernel.document import Document
 
 
 def _judge(content: str) -> LLMAnswerJudge:

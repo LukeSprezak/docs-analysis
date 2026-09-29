@@ -1,0 +1,223 @@
+"""Knowledge graph stored in Neo4j.
+
+Shape: `(:GraphEntity {name, type, owner_id, doc_ids})-[:RELATES {type, doc_ids}]->(:GraphEntity)`.
+
+Two properties carry the weight here:
+
+* **`owner_id` is part of entity identity.** Entities merge on
+  `(owner_id, normalized_name)`, never on the name alone, so two users writing about
+  "Kubernetes" get two separate nodes. Merging them would silently join one user's facts to
+  another's — the graph equivalent of handing over someone else's documents.
+* **`doc_ids` is a list, not a single value.** The same fact usually appears in several
+  documents. Deleting one document must retract only that document's claim, so a delete
+  removes the id from the list and drops the node or relationship once the list empties.
+  Storing one id would make the last delete wipe facts other documents still assert.
+
+Entity names come from an LLM, so the same thing arrives spelled differently. Case, spacing
+and trailing punctuation are collapsed by `normalize_entity_name`; genuine synonyms
+("Postgres" vs "PostgreSQL") still land as two nodes — see that module for why the rule stops
+deliberately short of fuzzy matching.
+"""
+
+import logging
+from typing import Any
+
+from langchain_core.runnables.config import run_in_executor
+from langchain_neo4j import Neo4jGraph
+
+from app.retrieval.domain.entity_normalization import normalize_entity_name
+from app.retrieval.domain.models import GraphFragment
+from app.retrieval.domain.repositories import KnowledgeGraphRepo
+from app.retrieval.infrastructure.lucene import escape_lucene
+from app.shared.kernel.document import Document
+from app.shared.kernel.document_identity import strip_owner_namespace
+
+logger = logging.getLogger(__name__)
+
+
+class Neo4jKnowledgeGraphRepo(KnowledgeGraphRepo):
+    def __init__(
+        self,
+        url: str,
+        username: str,
+        password: str,
+        database: str | None = None,
+        node_label: str = "GraphEntity",
+        relationship_type: str = "RELATES",
+        index_name: str = "graph_entity_names",
+    ) -> None:
+        self.node_label = node_label
+        self.relationship_type = relationship_type
+        self.index_name = index_name
+        self.graph = Neo4jGraph(
+            url=url,
+            username=username,
+            password=password,
+            database=database,
+            refresh_schema=False,  # we own the schema; introspecting it on every boot is waste
+        )
+        self._ensure_indexes()
+
+    def _ensure_indexes(self) -> None:
+        """Full-text index for entity lookup, plus a lookup index for the merge key.
+
+        Both are `IF NOT EXISTS`, so this is safe to run on every startup. A composite
+        *uniqueness* constraint on `(owner_id, name)` would be the stronger guarantee, but
+        `MERGE` already enforces it in practice and a plain index keeps this working on the
+        community edition.
+        """
+        self.graph.query(
+            f"CREATE FULLTEXT INDEX {self.index_name} IF NOT EXISTS "
+            f"FOR (entity:`{self.node_label}`) ON EACH [entity.name]"
+        )
+        self.graph.query(
+            f"CREATE INDEX {self.index_name}_owner IF NOT EXISTS "
+            f"FOR (entity:`{self.node_label}`) ON (entity.owner_id, entity.normalized_name)"
+        )
+
+    async def add_fragment(self, fragment: GraphFragment, owner_id: str) -> None:
+        # Replace semantics: retract what this document said before, so a re-upload does not
+        # leave behind facts the new version no longer contains.
+        await self.delete_by_document_id(fragment.doc_id, owner_id)
+        if fragment.is_empty():
+            return
+
+        await self._query(
+            f"UNWIND $entities AS entity "
+            # Identity is the normalized name, so "Postgres" and " postgres." land on one node.
+            f"MERGE (node:`{self.node_label}` "
+            f"       {{owner_id: $owner_id, normalized_name: entity.normalized_name}}) "
+            # First spelling wins as the display name, and the type is not rewritten by later
+            # documents — otherwise the citation text would flip depending on upload order.
+            f"ON CREATE SET node.name = entity.name, node.type = entity.type "
+            f"SET node.doc_ids = coalesce(node.doc_ids, []) + "
+            f"    CASE WHEN $doc_id IN coalesce(node.doc_ids, []) THEN [] ELSE [$doc_id] END",
+            {
+                "entities": [
+                    {
+                        "name": entity.name,
+                        "normalized_name": normalize_entity_name(entity.name),
+                        "type": entity.type,
+                    }
+                    for entity in fragment.entities
+                ],
+                "owner_id": owner_id,
+                "doc_id": fragment.doc_id,
+            },
+        )
+
+        if not fragment.relations:
+            return
+        await self._query(
+            f"UNWIND $relations AS relation "
+            # Same identity rule as above; the ON CREATE clauses are a safety net for an
+            # endpoint that somehow was not in `fragment.entities`.
+            f"MERGE (source:`{self.node_label}` "
+            f"       {{owner_id: $owner_id, normalized_name: relation.source_key}}) "
+            f"ON CREATE SET source.name = relation.source, source.type = relation.source_type "
+            f"MERGE (target:`{self.node_label}` "
+            f"       {{owner_id: $owner_id, normalized_name: relation.target_key}}) "
+            f"ON CREATE SET target.name = relation.target, target.type = relation.target_type "
+            f"MERGE (source)-[rel:`{self.relationship_type}` {{type: relation.type}}]->(target) "
+            f"SET rel.doc_ids = coalesce(rel.doc_ids, []) + "
+            f"    CASE WHEN $doc_id IN coalesce(rel.doc_ids, []) THEN [] ELSE [$doc_id] END",
+            {
+                "relations": [
+                    {
+                        "source": relation.source.name,
+                        "source_key": normalize_entity_name(relation.source.name),
+                        "source_type": relation.source.type,
+                        "target": relation.target.name,
+                        "target_key": normalize_entity_name(relation.target.name),
+                        "target_type": relation.target.type,
+                        "type": relation.type,
+                    }
+                    for relation in fragment.relations
+                ],
+                "owner_id": owner_id,
+                "doc_id": fragment.doc_id,
+            },
+        )
+
+    async def search_related(self, query: str, owner_id: str, top_k: int = 4) -> list[Document]:
+        """Finds the entities the query names, then returns the facts hanging off them.
+
+        The full-text hit is only the entry point — the value is the neighbourhood, which is
+        what a vector search over passages cannot reconstruct.
+        """
+        rows = await self._query(
+            "CALL db.index.fulltext.queryNodes($index_name, $query, {limit: $candidates}) "
+            "YIELD node, score "
+            "WHERE node.owner_id = $owner_id "
+            "WITH node, score ORDER BY score DESC LIMIT $seed_limit "
+            f"MATCH (source:`{self.node_label}`)-[rel:`{self.relationship_type}`]->"
+            f"      (target:`{self.node_label}`) "
+            "WHERE (source = node OR target = node) "
+            "  AND source.owner_id = $owner_id AND target.owner_id = $owner_id "
+            "RETURN DISTINCT source.name AS source, rel.type AS type, target.name AS target, "
+            "       rel.doc_ids AS doc_ids, score "
+            "ORDER BY score DESC LIMIT $top_k",
+            {
+                "index_name": self.index_name,
+                "query": escape_lucene(query),
+                "owner_id": owner_id,
+                "candidates": max(top_k * 5, 50),
+                "seed_limit": max(top_k, 4),
+                "top_k": top_k,
+            },
+        )
+        return [self._to_document(row, owner_id) for row in rows]
+
+    async def delete_by_document_id(self, doc_id: str, owner_id: str) -> None:
+        # Drop this document's claim, then remove whatever no document asserts any more.
+        await self._query(
+            f"MATCH (source:`{self.node_label}` {{owner_id: $owner_id}})"
+            f"-[rel:`{self.relationship_type}`]->(:`{self.node_label}`) "
+            "WHERE $doc_id IN rel.doc_ids "
+            "SET rel.doc_ids = [d IN rel.doc_ids WHERE d <> $doc_id] "
+            "WITH rel WHERE size(rel.doc_ids) = 0 "
+            "DELETE rel",
+            {"doc_id": doc_id, "owner_id": owner_id},
+        )
+        await self._query(
+            f"MATCH (node:`{self.node_label}` {{owner_id: $owner_id}}) "
+            "WHERE $doc_id IN node.doc_ids "
+            "SET node.doc_ids = [d IN node.doc_ids WHERE d <> $doc_id] "
+            "WITH node WHERE size(node.doc_ids) = 0 "
+            "DETACH DELETE node",
+            {"doc_id": doc_id, "owner_id": owner_id},
+        )
+
+    async def close(self) -> None:
+        await run_in_executor(None, self.graph.close)
+
+    async def _query(self, cypher: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        """Runs Cypher off the event loop (Neo4jGraph wraps the synchronous driver)."""
+        return await run_in_executor(None, lambda: self.graph.query(cypher, params=params))
+
+    @staticmethod
+    def _to_document(row: dict[str, Any], owner_id: str) -> Document:
+        """Renders a triple as a sentence the LLM can read as context.
+
+        The metadata has to carry the same provenance keys a vector hit does. Both citation
+        and the evaluation harness match on the plain file name, so the owner namespace comes
+        back off here (`strip_owner_namespace` — the rule lives in the domain). Without
+        `filename` every graph hit would be scored against a name no golden set contains, and
+        the graph would measure as useless no matter how good it is.
+        """
+        doc_ids = [str(doc_id) for doc_id in row.get("doc_ids") or []]
+        primary_doc_id = doc_ids[0] if doc_ids else None
+        return Document(
+            id=primary_doc_id or "knowledge-graph",
+            content=f"{row['source']} {row['type']} {row['target']}",
+            metadata={
+                # Marks the provenance so an answer can say the fact came from the graph
+                # rather than from a quoted passage.
+                "source": "knowledge_graph",
+                "doc_ids": doc_ids,
+                "doc_id": primary_doc_id,
+                "filename": (
+                    strip_owner_namespace(primary_doc_id, owner_id) if primary_doc_id else None
+                ),
+            },
+        )

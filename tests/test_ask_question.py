@@ -1,6 +1,6 @@
-from app.knowledge_management.application.use_cases.ask_question import AskQuestionUseCase
-from app.knowledge_management.domain.models import Document
-from app.knowledge_management.domain.repositories import RerankerService
+from app.retrieval.application.ask_question import AskQuestionUseCase
+from app.retrieval.domain.repositories import RerankerService
+from app.shared.kernel.document import Document
 from tests.fakes import StubRAGService, StubVectorStoreRepo
 
 

@@ -7,20 +7,18 @@ as `NotImplementedError`; a test subclasses one and overrides only what it exerc
 
 from collections.abc import AsyncIterator
 
-from app.knowledge_management.domain.models import (
-    Conversation,
-    Document,
-    Summary,
-)
-from app.knowledge_management.domain.repositories import (
+from app.conversations.domain.models import Conversation
+from app.conversations.domain.repositories import ConversationRepo
+from app.documents.domain.repositories import DocumentRepo
+from app.retrieval.domain.repositories import (
     AnswerJudge,
-    ConversationRepo,
-    DocumentRepo,
     RAGService,
     RerankerService,
-    SummaryRepo,
     VectorStoreRepo,
 )
+from app.shared.kernel.document import Document
+from app.summaries.domain.models import Summary
+from app.summaries.domain.repositories import SummaryRepo
 
 
 class StubDocumentRepo(DocumentRepo):

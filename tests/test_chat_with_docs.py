@@ -4,9 +4,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.knowledge_management.application.use_cases.chat_with_docs import ChatWithDocsUseCase
-from app.knowledge_management.domain.models import ChatMessage, Conversation, Document
+from app.conversations.application.chat_with_docs import ChatWithDocsUseCase
+from app.conversations.domain.models import ChatMessage, Conversation
 from app.shared.exceptions import EntityNotFoundException
+from app.shared.kernel.document import Document
 
 
 def _vec(docs: list[Document] | None = None) -> MagicMock:

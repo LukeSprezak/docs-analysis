@@ -22,20 +22,14 @@ from collections.abc import AsyncIterator, Callable
 import pytest
 from langchain_core.embeddings import DeterministicFakeEmbedding
 
-from app.knowledge_management.domain.models import Document
-from app.knowledge_management.domain.repositories import VectorStoreRepo
-from app.knowledge_management.infrastructure.persistence.faiss_vectorstore_repo import (
-    FaissVectorStoreRepo,
-)
-from app.knowledge_management.infrastructure.persistence.neo4j_vectorstore_repo import (
-    Neo4jVectorStoreRepo,
-)
-from app.knowledge_management.infrastructure.persistence.postgres_vectorstore_repo import (
-    PostgresVectorStoreRepo,
-)
-from app.knowledge_management.infrastructure.text.text_chunker import TextChunker
+from app.retrieval.domain.repositories import VectorStoreRepo
+from app.retrieval.infrastructure.faiss_vectorstore_repo import FaissVectorStoreRepo
+from app.retrieval.infrastructure.neo4j_vectorstore_repo import Neo4jVectorStoreRepo
+from app.retrieval.infrastructure.postgres_vectorstore_repo import PostgresVectorStoreRepo
+from app.retrieval.infrastructure.text_chunker import TextChunker
 from app.shared.config import settings
 from app.shared.database import dispose_engine
+from app.shared.kernel.document import Document
 
 # A repo builder takes the chunker the test wants (chunk size decides how many fragments a
 # document produces) plus whether hybrid retrieval is on, and returns a ready adapter.
