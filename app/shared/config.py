@@ -22,6 +22,8 @@ class Settings(BaseSettings):
 
     RETRIEVAL_CANDIDATE_COUNT: int
     RETRIEVAL_TOP_K: int
+    # Minimum vector similarity, (1 + cos) / 2 on a 0-1 scale — so 0.5 means cos = 0.
+    RETRIEVAL_MIN_SCORE: float
 
     RETRIEVAL_STRATEGY: SearchStrategy
 

@@ -92,6 +92,7 @@ def get_retrieval_pipeline(
         reranker,
         candidate_count=settings.RETRIEVAL_CANDIDATE_COUNT,
         top_k=settings.RETRIEVAL_TOP_K,
+        min_score=settings.RETRIEVAL_MIN_SCORE,
         graph_repo=graph_repo,
     )
 

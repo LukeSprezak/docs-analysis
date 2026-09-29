@@ -29,12 +29,14 @@ class RetrievalPipeline:
         candidate_count: int = 20,
         top_k: int = 4,
         graph_repo: KnowledgeGraphRepo | None = None,
+        min_score: float = 0.0,
     ) -> None:
         self.vector_repo = vector_repo
         self.graph_repo = graph_repo or NullKnowledgeGraphRepo()
         self.reranker = reranker
         self.candidate_count = candidate_count
         self.top_k = top_k
+        self.min_score = min_score
 
     async def retrieve(self, query: str, owner_id: str) -> list[Document]:
         passages = await self.vector_repo.search(query, owner_id, top_k=self.candidate_count)
@@ -42,4 +44,11 @@ class RetrievalPipeline:
         candidates = fuse_documents(
             [passages, facts], top_k=self.candidate_count, key_of=retrieval_key
         )
+        # Cut before reranking, so weak hits never take a top_k slot. Keyword-only hits and
+        # graph facts have no similarity score to compare — they matched on their own terms.
+        candidates = [
+            candidate
+            for candidate in candidates
+            if "score" not in candidate.metadata or candidate.metadata["score"] >= self.min_score
+        ]
         return await self.reranker.rerank(query, candidates, top_k=self.top_k)

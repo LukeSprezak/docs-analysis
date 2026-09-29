@@ -121,5 +121,6 @@ From the original RAG spec — decide before starting the open ones:
 - [x] `score` (vector similarity, `null` for keyword-only hits and graph facts) and `snippet`
   per source in `/qa/ask` responses; `/chat` still returns `list[str]` labels
 - [ ] `/health` with `chunks_indexed`
-- [ ] `min_score` cutoff on retrieval
+- [x] `min_score` cutoff on retrieval (`RETRIEVAL_MIN_SCORE`, applied before reranking;
+  hits without a score pass) — value still to be tuned with the evaluation
 - [ ] store the embedding model with the index and fail clearly on a mismatch at query time

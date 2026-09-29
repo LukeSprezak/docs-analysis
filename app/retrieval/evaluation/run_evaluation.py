@@ -247,6 +247,7 @@ async def _run(argv: Sequence[str] | None) -> None:
             reranker=create_reranker(),
             candidate_count=settings.RETRIEVAL_CANDIDATE_COUNT,
             top_k=settings.RETRIEVAL_TOP_K,
+            min_score=settings.RETRIEVAL_MIN_SCORE,
             graph_repo=graph_repo,
         )
 
